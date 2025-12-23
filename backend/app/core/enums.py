@@ -9,4 +9,36 @@ class UserStatus(Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     BLOCKED = "blocked"
+
+class ProjectStatus(Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    UPCOMING = "upcoming"
+    DELAYED = "delayed"
+    COMPLETED = "completed"
+
+class SprintStatus(Enum):
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    TRANSFERRED = "transferred"
+
+class IssueStatus(Enum):
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    HOLD = "hold"
+
+class IssueType(Enum):
+    STORY = "story"
+    TASK = "task"
+    BUG = "bug"
+    EPIC = "epic"
+    SUBTASK = "subtask"
+    FEATURE = "feature"
+    RELEASE = "release"
+    DOCUMENTATION = "documentation"
+    OTHER = "other"
     
