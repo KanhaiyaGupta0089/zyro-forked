@@ -1,22 +1,42 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AnimatePresence } from "framer-motion";
 
 import SignUp from "./components/custom/pages/auth/SignUp";
 import Login from "./components/custom/pages/auth/Login";
 import Forgot from "./components/custom/pages/auth/Forgot";
-
-import "./App.css";
 import Reset from "./components/custom/pages/auth/Reset";
 import PageTransitionWrapper from "./components/custom/pages/auth/PageTransitionWrapper";
+
+import ProtectedRoute from "./routes/ProtectedRoute";
+import PublicRoute from "./routes/PublicRoute";
+
+import DashboardLayout from "./layouts/DashboardLayout";
+import Dashboard from "./pages/dashboard/Dashboard";
+
+import { useSelector } from "react-redux";
+import { RootState } from "./redux/store";
+
+import "./App.css";
+
 function App() {
+  const AuthRedirect = () => {
+    const { user } = useSelector((state: RootState) => state.auth);
+    
+    if (user) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    
+    return <Navigate to="/signup" replace />;
+  };
+  
   return (
     <div className="App">
-      {/* 🔔 Global Toast Configuration */}
+      {/* 🔔 Global Toast */}
       <Toaster
         position="top-right"
-        reverseOrder={true} 
-        gutter={10}            
+        reverseOrder
+        gutter={10}
         toastOptions={{
           duration: 3000,
           style: {
@@ -27,60 +47,75 @@ function App() {
             fontSize: "14px",
             boxShadow: "0 10px 25px rgba(0,0,0,0.18)",
           },
-
-          success: {
-            iconTheme: {
-              primary: "#22c55e",
-              secondary: "#ffffff",
-            },
-          },
-
-          error: {
-            iconTheme: {
-              primary: "#ef4444",
-              secondary: "#ffffff",
-            },
-          },
-
-          loading: {
-            iconTheme: {
-              primary: "#facc15",
-              secondary: "#ffffff",
-            },
-          },
         }}
       />
 
-      {/* 🚦 Routes */}
       <AnimatePresence mode="wait">
         <Routes>
-          <Route path="/" element={
-            <PageTransitionWrapper>
-              <SignUp />
-            </PageTransitionWrapper>
-          } />
-          <Route path="/signup" element={
-            <PageTransitionWrapper>
-              <SignUp />
-            </PageTransitionWrapper>
-          } />
-          <Route path="/login" element={
-            <PageTransitionWrapper>
-              <Login />
-            </PageTransitionWrapper>
-          } />
-          <Route path="/forgot-password" element={
-            <PageTransitionWrapper>
-              <Forgot />
-            </PageTransitionWrapper>
-          } />
-          <Route path="/reset-password" element={
-            <PageTransitionWrapper>
-              <Reset />
-            </PageTransitionWrapper>
-          } />
+          <Route path="/" element={<AuthRedirect />} />
+
+          {/* ---------- PUBLIC ROUTES ---------- */}
+          <Route
+            path="/signup"
+            element={
+              <PublicRoute>
+                <PageTransitionWrapper>
+                  <SignUp />
+                </PageTransitionWrapper>
+              </PublicRoute>
+            }
+          />
+
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <PageTransitionWrapper>
+                  <Login />
+                </PageTransitionWrapper>
+              </PublicRoute>
+            }
+          />
+
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicRoute>
+                <PageTransitionWrapper>
+                  <Forgot />
+                </PageTransitionWrapper>
+              </PublicRoute>
+            }
+          />
+
+          <Route
+            path="/reset-password"
+            element={
+              <PublicRoute>
+                <PageTransitionWrapper>
+                  <Reset />
+                </PageTransitionWrapper>
+              </PublicRoute>
+            }
+          />
+
+          {/* ---------- PROTECTED ROUTES ---------- */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
+          </Route>
+
+          {/* ---------- FALLBACK ---------- */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
-      </AnimatePresence>    </div>
+      </AnimatePresence>
+    </div>
   );
 }
 
