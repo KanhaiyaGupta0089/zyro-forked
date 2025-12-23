@@ -9,6 +9,7 @@ import {
   LogOut,
   User,
   Settings,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +20,7 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 h-16 bg-gradient-to-r from-blue-50 to-emerald-50 border-b border-blue-200/30 px-4 md:px-6 flex items-center justify-between">
@@ -28,23 +30,49 @@ const Navbar = () => {
           <Menu size={20} />
         </button>
 
-        <div className="relative hidden md:block">
-          <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            placeholder="Search projects, tasks..."
-            className="bg-blue-100/50 border border-blue-200/50 rounded-lg pl-10 pr-4 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400" />
-        </div>
+        {isMobileSearchOpen ? (
+          <div className="relative flex-1 md:hidden">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="text"
+              placeholder="Search projects, tasks..."
+              className="bg-blue-100/50 border border-blue-200/50 rounded-lg pl-10 pr-10 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400"
+              autoFocus
+            />
+            <button 
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-blue-200 text-blue-600"
+              onClick={() => setIsMobileSearchOpen(false)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+        ) : (
+          <div className="relative hidden md:block">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="text"
+              placeholder="Search projects, tasks..."
+              className="bg-blue-100/50 border border-blue-200/50 rounded-lg pl-10 pr-4 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400" />
+          </div>
+        )}
       </div>
 
       {/* RIGHT */}
       <div className="flex items-center gap-4 md:gap-6">
-        <button className="md:hidden p-2 rounded-lg hover:bg-blue-100 text-blue-600">
-          <Search size={20} />
-        </button>
+        {!isMobileSearchOpen && (
+          <button 
+            className="md:hidden p-2 rounded-lg hover:bg-blue-100 text-blue-600"
+            onClick={() => setIsMobileSearchOpen(true)}
+          >
+            <Search size={20} />
+          </button>
+        )}
 
         <button className="relative p-2 rounded-lg hover:bg-blue-100 text-blue-600">
           <Bell size={20} />

@@ -12,7 +12,6 @@ const quickActions = [
   { label: "Add Task", icon: Plus },
   { label: "Add Member", icon: UserPlus },
   { label: "View Reports", icon: BarChart3 },
-  { label: "Settings", icon: Settings },
 ];
 
 const QuickActions = () => {
@@ -44,27 +43,6 @@ const QuickActions = () => {
             </button>
           );
         })}
-      </div>
-
-      {/* Help */}
-      <div className="mt-6 pt-4 border-t border-amber-200/50">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-amber-100 text-amber-600">
-            <HelpCircle size={18} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-amber-800">
-              Need help?
-            </p>
-            <p className="text-xs text-amber-600 mt-1">
-              Our support team is available to assist you.
-            </p>
-          </div>
-        </div>
-
-        <button className="mt-4 w-full py-2 text-sm font-medium text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition">
-          Contact Support
-        </button>
       </div>
     </div>
   );
