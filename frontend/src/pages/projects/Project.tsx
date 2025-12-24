@@ -9,11 +9,12 @@ import {
   ChevronDown,
   MoreHorizontal
 } from "lucide-react";
+import { Project as ProjectType } from "../../services/api/types";
 // import { projectApi } from "../../services/api"; // Commented out since using mock data
 
 const Project = () => {
-  const [allProjects, setAllProjects] = useState([]);
-  const [filteredProjects, setFilteredProjects] = useState([]);
+  const [allProjects, setAllProjects] = useState<ProjectType[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<ProjectType[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -22,7 +23,7 @@ const Project = () => {
 
 
   // Function to get status color based on status
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch(status.toLowerCase()) {
       case "active":
         return "bg-blue-100 text-blue-800";

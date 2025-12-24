@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { DashboardStats, Project, Issue } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -15,7 +16,10 @@ apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${token}`,
+      };
     }
     return config;
   },
@@ -40,9 +44,9 @@ apiClient.interceptors.response.use(
 // Dashboard API functions
 export const dashboardApi = {
   // GET dashboard statistics
-  getDashboardStats: async () => {
+  getDashboardStats: async (): Promise<DashboardStats> => {
     try {
-      const response = await apiClient.get('/dashboard/stats');
+      const response = await apiClient.get<DashboardStats>('/dashboard/stats');
       return response.data;
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -51,9 +55,9 @@ export const dashboardApi = {
   },
 
   // GET recent projects
-  getRecentProjects: async (limit: number = 4) => {
+  getRecentProjects: async (limit: number = 4): Promise<Project[]> => {
     try {
-      const response = await apiClient.get(`/dashboard/recent-projects?limit=${limit}`);
+      const response = await apiClient.get<Project[]>(`/dashboard/recent-projects?limit=${limit}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching recent projects:', error);
@@ -62,9 +66,9 @@ export const dashboardApi = {
   },
 
   // GET recent issues
-  getRecentIssues: async (limit: number = 4) => {
+  getRecentIssues: async (limit: number = 4): Promise<Issue[]> => {
     try {
-      const response = await apiClient.get(`/dashboard/recent-issues?limit=${limit}`);
+      const response = await apiClient.get<Issue[]>(`/dashboard/recent-issues?limit=${limit}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching recent issues:', error);
@@ -73,7 +77,7 @@ export const dashboardApi = {
   },
 
   // GET all dashboard data
-  getDashboardData: async () => {
+  getDashboardData: async (): Promise<any> => {
     try {
       const response = await apiClient.get('/dashboard');
       return response.data;

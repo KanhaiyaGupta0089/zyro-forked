@@ -1,20 +1,17 @@
 import {
-  AlertTriangle,
-  Calendar,
   User,
-  CheckCircle,
-  Clock,
   Bug,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { dashboardApi } from "../../services/api";
+import { Issue } from "../../services/api/types";
 
 const RecentIssues = () => {
   const navigate = useNavigate();
   
-  const [issues, setIssues] = useState([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -23,7 +20,7 @@ const RecentIssues = () => {
       try {
         setLoading(true);
         // Fetch recent issues using the dashboard API
-        const recentIssues = await dashboardApi.getRecentIssues(4);
+        const recentIssues = await dashboardApi.getRecentIssues(4) as Issue[];
         setIssues(recentIssues);
         setError(null);
       } catch (err) {
@@ -38,7 +35,7 @@ const RecentIssues = () => {
   }, []);
   
   // Function to get status color based on status
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch(status.toLowerCase()) {
       case "canceled":
         return "bg-red-100 text-red-800";
@@ -56,7 +53,7 @@ const RecentIssues = () => {
   };
   
   // Function to get priority color based on priority
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = (priority: string) => {
     switch(priority.toLowerCase()) {
       case "high":
         return "bg-red-100 text-red-800";
@@ -69,6 +66,113 @@ const RecentIssues = () => {
     }
   };
   
+  if (loading && issues.length === 0) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
+              <Bug size={16} />
+            </span>
+            Recent Issues
+          </h2>
+          <button 
+            className="text-xs font-medium text-amber-600 hover:underline"
+            onClick={() => navigate('/issues')}
+          >
+            View all
+          </button>
+        </div>
+        <div className="flex items-center justify-center h-32">
+          <p className="text-gray-500">Loading issues...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error && issues.length === 0) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
+              <Bug size={16} />
+            </span>
+            Recent Issues
+          </h2>
+          <button 
+            className="text-xs font-medium text-amber-600 hover:underline"
+            onClick={() => navigate('/issues')}
+          >
+            View all
+          </button>
+        </div>
+        <div className="flex items-center justify-center h-32">
+          <p className="text-red-500">{error}</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Function to render loading/error states
+  const renderState = (isLoading: boolean, errorState: string | null, items: Issue[], title: string, icon: JSX.Element, navigateTo: string) => {
+    if (isLoading && items.length === 0) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
+                {icon}
+              </span>
+              {title}
+            </h2>
+            <button 
+              className="text-xs font-medium text-amber-600 hover:underline"
+              onClick={() => navigate(navigateTo)}
+            >
+              View all
+            </button>
+          </div>
+          <div className="flex items-center justify-center h-32">
+            <p className="text-gray-500">Loading {title.toLowerCase()}...</p>
+          </div>
+        </div>
+      );
+    }
+  
+    if (errorState && items.length === 0) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
+                {icon}
+              </span>
+              {title}
+            </h2>
+            <button 
+              className="text-xs font-medium text-amber-600 hover:underline"
+              onClick={() => navigate(navigateTo)}
+            >
+              View all
+            </button>
+          </div>
+          <div className="flex items-center justify-center h-32">
+            <p className="text-red-500">{errorState}</p>
+          </div>
+        </div>
+      );
+    }
+      
+    return null; // Return null when not in loading/error state
+  };
+  
+  // Check if we're in loading or error state
+  const stateElement = renderState(loading, error, issues, 'Recent Issues', <Bug size={16} />, '/issues');
+  if (stateElement) {
+    return stateElement;
+  }
+    
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4">
       {/* Header */}
@@ -79,7 +183,7 @@ const RecentIssues = () => {
           </span>
           Recent Issues
         </h2>
-
+  
         <button 
           className="text-xs font-medium text-amber-600 hover:underline"
           onClick={() => navigate('/issues')}
@@ -87,7 +191,7 @@ const RecentIssues = () => {
           View all
         </button>
       </div>
-
+  
       {/* Issue List */}
       <ul className="space-y-3">
         {issues.map((issue) => (
@@ -105,23 +209,23 @@ const RecentIssues = () => {
                     {issue.priority}
                   </span>
                 </div>
-                
+                  
                 <div className="flex items-center gap-3 mt-2">
                   <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(issue.status)}`}>
                     {issue.status}
                   </span>
-                  
+                    
                   <div className="text-xs text-gray-500 flex items-center">
                     <User size={10} className="mr-1" />
                     {issue.assignee}
                   </div>
-                  
+                    
                   <div className="text-xs text-gray-500 truncate">
                     {issue.project}
                   </div>
                 </div>
               </div>
-              
+                
               <div className="text-xs text-gray-500 ml-2 flex flex-col items-end">
                 <span>{issue.created}</span>
               </div>

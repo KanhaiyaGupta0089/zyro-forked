@@ -7,7 +7,6 @@ import {
   CheckSquare,
   User,
   Settings,
-  ChevronLeft,
   ChevronRight,
   X,
 } from "lucide-react";

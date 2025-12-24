@@ -7,6 +7,7 @@ import {
 
 import { useState, useEffect } from "react";
 import { dashboardApi } from "../../services/api";
+import { DashboardStats } from "../../services/api/types";
 
 const HomeStats = () => {
   const [stats, setStats] = useState([
@@ -20,7 +21,7 @@ const HomeStats = () => {
     const fetchStatsData = async () => {
       try {
         // Fetch dashboard stats using the dashboard API
-        const statsData = await dashboardApi.getDashboardStats();
+        const statsData = await dashboardApi.getDashboardStats() as DashboardStats;
         
         setStats([
           { label: "Total Projects", value: statsData.total_projects, description: "All projects", icon: Folder },

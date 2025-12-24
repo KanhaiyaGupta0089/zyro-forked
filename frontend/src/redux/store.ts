@@ -5,7 +5,7 @@ export const store = configureStore({
   reducer: {
     auth: authReducer,
   },
-  devTools: import.meta.env.MODE !== "production",
+  devTools: process.env.NODE_ENV !== "production",
 });
 
 // Types

@@ -12,11 +12,12 @@ import {
   CheckCircle,
   Clock
 } from "lucide-react";
+import { Issue as IssueType } from "../../services/api/types";
 // import { issueApi } from "../../services/api"; // Commented out since using mock data
 
 const Issue = () => {
-  const [allIssues, setAllIssues] = useState([]);
-  const [filteredIssues, setFilteredIssues] = useState([]);
+  const [allIssues, setAllIssues] = useState<IssueType[]>([]);
+  const [filteredIssues, setFilteredIssues] = useState<IssueType[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -26,7 +27,7 @@ const Issue = () => {
 
 
   // Function to get status color based on status
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch(status.toLowerCase()) {
       case "completed":
         return "bg-green-100 text-green-800 border border-green-200";
@@ -44,7 +45,7 @@ const Issue = () => {
   };
 
   // Function to get priority color based on priority
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = (priority: string) => {
     switch(priority.toLowerCase()) {
       case "high":
         return "bg-red-100 text-red-800 border border-red-200";
@@ -58,7 +59,7 @@ const Issue = () => {
   };
 
   // Function to get type icon based on issue type
-  const getTypeIcon = (type) => {
+  const getTypeIcon = (type: string) => {
     switch(type.toLowerCase()) {
       case "bug":
         return <AlertTriangle size={14} />;

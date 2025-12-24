@@ -131,7 +131,7 @@ async def get_recent_projects(
                 total_issues_result = await db.execute(
                     select(func.count(Issue.id)).filter(
                         Issue.sprint_id.in_(
-                            select(Sprint.id).filter(Sprint.project_id == project.id).scalar_subquery()
+                            select(Sprint.id).where(Sprint.project_id == project.id).scalar_subquery()
                         )
                     )
                 )
@@ -140,7 +140,7 @@ async def get_recent_projects(
                 completed_issues_result = await db.execute(
                     select(func.count(Issue.id)).filter(
                         Issue.sprint_id.in_(
-                            select(Sprint.id).filter(Sprint.project_id == project.id).scalar_subquery()
+                            select(Sprint.id).where(Sprint.project_id == project.id)
                         ),
                         Issue.status == IssueStatus.COMPLETED
                     )
@@ -150,7 +150,12 @@ async def get_recent_projects(
             progress = int((completed_issues / total_issues * 100)) if total_issues > 0 else 0
             
             # Get team members count for this project
-            team_members = 0  # This would need to be calculated based on project members relationship
+            project_members_result = await db.execute(
+                select(func.count(ProjectMember.id)).filter(
+                    ProjectMember.project_id == project.id
+                )
+            )
+            team_members = project_members_result.scalar() or 0
             
             result.append({
                 "id": project.id,
@@ -197,7 +202,7 @@ async def get_recent_issues(
             result.append({
                 "id": issue.id,
                 "title": issue.name,
-                "priority": "Medium",  # Priority is not in the model, defaulting to Medium
+                "priority": issue.type.value if hasattr(issue.type, 'value') else str(issue.type),
                 "status": issue.status.value if hasattr(issue.status, 'value') else issue.status,
                 "assignee": assignee_name,
                 "created": issue.created_at.isoformat() if issue.created_at else None,

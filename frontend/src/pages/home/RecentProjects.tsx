@@ -1,19 +1,17 @@
 import {
   Folder,
-  Calendar,
   User,
-  CheckCircle,
-  Clock,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { dashboardApi } from "../../services/api";
+import { Project } from "../../services/api/types";
 
 const RecentProjects = () => {
   const navigate = useNavigate();
   
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -22,7 +20,7 @@ const RecentProjects = () => {
       try {
         setLoading(true);
         // Fetch recent projects using the dashboard API
-        const recentProjects = await dashboardApi.getRecentProjects(4);
+        const recentProjects = await dashboardApi.getRecentProjects(4) as Project[];
         setProjects(recentProjects);
         setError(null);
       } catch (err) {
@@ -37,7 +35,7 @@ const RecentProjects = () => {
   }, []);
   
   // Function to get status color based on status
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch(status.toLowerCase()) {
       case "active":
         return "bg-blue-100 text-blue-800";
@@ -54,6 +52,65 @@ const RecentProjects = () => {
     }
   };
   
+  // Function to render loading/error states
+  const renderState = (isLoading: boolean, errorState: string | null, items: Project[], title: string, icon: JSX.Element, navigateTo: string) => {
+    if (isLoading && items.length === 0) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-sky-800 flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-sky-100 text-sky-600">
+                {icon}
+              </span>
+              {title}
+            </h2>
+            <button 
+              className="text-xs font-medium text-sky-600 hover:underline"
+              onClick={() => navigate(navigateTo)}
+            >
+              View all
+            </button>
+          </div>
+          <div className="flex items-center justify-center h-32">
+            <p className="text-gray-500">Loading {title.toLowerCase()}...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (errorState && items.length === 0) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-sky-800 flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-sky-100 text-sky-600">
+                {icon}
+              </span>
+              {title}
+            </h2>
+            <button 
+              className="text-xs font-medium text-sky-600 hover:underline"
+              onClick={() => navigate(navigateTo)}
+            >
+              View all
+            </button>
+          </div>
+          <div className="flex items-center justify-center h-32">
+            <p className="text-red-500">{errorState}</p>
+          </div>
+        </div>
+      );
+    }
+    
+    return null; // Return null when not in loading/error state
+  };
+
+  // Check if we're in loading or error state
+  const stateElement = renderState(loading, error, projects, 'Recent Projects', <Folder size={16} />, '/projects');
+  if (stateElement) {
+    return stateElement;
+  }
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4">
       {/* Header */}
