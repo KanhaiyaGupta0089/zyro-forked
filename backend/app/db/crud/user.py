@@ -40,12 +40,12 @@ async def create_user_password(
 async def get_user_by_id(
     user_id:int,
     session:AsyncSession
-) -> User:
+) -> Optional[User]:
     """
     get user object by user id
     """
-    stmt = select(User).where(id == user_id)
-    result = session.execute(stmt)
+    stmt = select(User).where(User.id == user_id)
+    result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
 async def update_user_password(

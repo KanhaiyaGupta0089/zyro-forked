@@ -30,6 +30,8 @@ class IssueStatus(Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     HOLD = "hold"
+    REVIEW = "review"
+    BLOCKED = "blocked"
 
 class IssueType(Enum):
     STORY = "story"
@@ -41,4 +43,8 @@ class IssueType(Enum):
     RELEASE = "release"
     DOCUMENTATION = "documentation"
     OTHER = "other"
+
+class OrganizationStatus(Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
     
