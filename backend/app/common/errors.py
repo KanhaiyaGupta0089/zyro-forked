@@ -35,11 +35,15 @@ class InvalidDataError(UserErrors):
 
 @dataclass
 class DatabaseErrors(UserErrors):
-    pass
+    message: str = "Database operation failed"
+    response_code: int = 500
+    type: str = 'DatabaseErrors'
 
 @dataclass
 class ServerErrors(UserErrors):
-    pass
+    message: str = "Internal server error"
+    response_code: int = 500
+    type: str = 'ServerErrors'
 
 
 @dataclass
@@ -64,6 +68,7 @@ class CredentialError(UserErrors):
 @dataclass
 class S3Error(UserErrors):
     message: str = 'Error while connecting to S3. Please try again.'
+    response_code: int = 502
     type: str = 'S3Errors'
 
     def __str__(self):
@@ -83,6 +88,7 @@ class PermissionDeniedError(UserErrors):
 @dataclass
 class GDriveError(UserErrors):
     message:str = "Some error occurred while communicating with google drive, please try again."
+    response_code: int = 502
     type: str = "GDriveError"
 
 @dataclass
@@ -91,3 +97,13 @@ class S3ConnectionError(UserErrors):
     error_message: str = ""
     response_code: int = 500
     type: Literal["S3ConnectionError"] = "S3ConnectionError"
+
+@dataclass
+class NotFoundError(UserErrors):
+    message: str = "Resource not found"
+    response_code: int = 404
+    type: str = 'NotFoundError'
+    log_level: Literal['ERROR', 'CRITICAL', 'INFO', 'WARNING'] = 'WARNING'
+
+    def __str__(self):
+        return self.message

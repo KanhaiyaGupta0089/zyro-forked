@@ -30,7 +30,7 @@ class IssueStatus(Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     HOLD = "hold"
-    REVIEW = "review"
+    QA="qa"
     BLOCKED = "blocked"
 
 class IssueType(Enum):

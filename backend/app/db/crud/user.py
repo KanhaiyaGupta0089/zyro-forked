@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.security import hash_password,verify_password
 from app.core.enums import Role,UserStatus
+from app.common.errors import NotFoundError
 from typing import Optional
 
 
@@ -57,16 +58,16 @@ async def update_user_password(
     update user password
     """
     
-    user= get_user_by_id(user_id=user_id)
+    user = await get_user_by_id(user_id=user_id, session=session)
     if not user:
-        raise ValueError(f"User with id {user_id} not found")
+        raise NotFoundError(message=f"User with id {user_id} not found")
     
     hashed_password = await hash_password(new_password)
 
     user.password = hashed_password
 
     await session.commit()
-    await session.refresh()
+    await session.refresh(user)
 
     return user
 
