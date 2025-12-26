@@ -88,52 +88,86 @@ class ExceptionHandler:
         return await self.unknown_error_handler()
     
     def log_error(self):
-        log_message = (
-            f'{self.request_data_extractor.get_request_method()} : '
-            f'{self.request_data_extractor.get_request_url()} : '
-            f'{str(self.exc)}'
-            f'\n{"".join(traceback.format_exception(type(self.exc), value=self.exc, tb=self.exc.__traceback__))}'
-        )
-        
-        if not isinstance(self.exc, UserErrors):
-            logger.error(log_message)
-            return
-        
-        log_level = getattr(self.exc, 'log_level', 'ERROR')
-        LOG_LEVELS.get(log_level, logger.error)(log_message)
+        try:
+            log_message = (
+                f'{self.request_data_extractor.get_request_method()} : '
+                f'{self.request_data_extractor.get_request_url()} : '
+                f'{str(self.exc)}'
+            )
+            
+            # Safely format traceback
+            try:
+                if self.exc.__traceback__:
+                    log_message += f'\n{"".join(traceback.format_exception(type(self.exc), value=self.exc, tb=self.exc.__traceback__))}'
+            except Exception:
+                log_message += f'\n[Traceback formatting failed]'
+            
+            if not isinstance(self.exc, UserErrors):
+                logger.error(log_message)
+                return
+            
+            log_level = getattr(self.exc, 'log_level', 'ERROR')
+            LOG_LEVELS.get(log_level, logger.error)(log_message)
+        except Exception as e:
+            # If logging fails, just log a simple message
+            logger.error(f"Failed to log error: {str(e)}, Original: {str(self.exc)}")
 
     async def prepare_error_data(self, exclude_fields: List[str] = []):
         error_data = {
-            "log_level": self.exc.log_level if isinstance(self.exc, UserErrors) else 'ERROR', 
+            "log_level": getattr(self.exc, 'log_level', 'ERROR') if isinstance(self.exc, UserErrors) else 'ERROR', 
             'error_id': get_current_request_id() or 'unknown'
         }
 
-        if "project" not in exclude_fields:
-            error_data['project'] = APP_NAME
+        try:
+            if "project" not in exclude_fields:
+                error_data['project'] = APP_NAME
 
-        if "module" not in exclude_fields:
-            error_data['module'] = APP_NAME
-        
-        if "method" not in exclude_fields:
-            error_data['method'] = self.request_data_extractor.get_request_method()
-        
-        if "headers" not in exclude_fields:
-            error_data['headers'] = self.request_data_extractor.get_request_headers()
+            if "module" not in exclude_fields:
+                error_data['module'] = APP_NAME
+            
+            if "method" not in exclude_fields:
+                try:
+                    error_data['method'] = self.request_data_extractor.get_request_method()
+                except Exception:
+                    error_data['method'] = 'UNKNOWN'
+            
+            if "headers" not in exclude_fields:
+                try:
+                    error_data['headers'] = self.request_data_extractor.get_request_headers()
+                except Exception:
+                    error_data['headers'] = {}
 
-        if 'uri' not in exclude_fields:
-            error_data['uri'] = self.request_data_extractor.get_request_url(include_query_params=True)
-        
-        if 'err' not in exclude_fields:
+            if 'uri' not in exclude_fields:
+                try:
+                    error_data['uri'] = self.request_data_extractor.get_request_url(include_query_params=True)
+                except Exception:
+                    error_data['uri'] = 'UNKNOWN'
+            
+            if 'err' not in exclude_fields:
+                error_data['err'] = str(self.exc)
+            
+            if "request_data" not in exclude_fields:
+                try:
+                    error_data['request_data'] = await self.request_data_extractor.get_request_body()
+                except Exception:
+                    error_data['request_data'] = {}
+            
+            if "traceback" not in exclude_fields:
+                try:
+                    error_data['traceback'] = ''.join(traceback.format_tb(self.exc.__traceback__)) if self.exc.__traceback__ else ''
+                except Exception:
+                    error_data['traceback'] = ''
+            
+            if "error_type" not in exclude_fields:
+                if isinstance(self.exc, UserErrors):
+                    error_data['error_type'] = getattr(self.exc, 'type', type(self.exc).__name__)
+                else:
+                    error_data['error_type'] = type(self.exc).__name__
+        except Exception as e:
+            logger.error(f"Error in prepare_error_data: {str(e)}", exc_info=True)
+            # Return minimal error data if preparation fails
             error_data['err'] = str(self.exc)
-        
-        if "request_data" not in exclude_fields:
-            error_data['request_data'] = await self.request_data_extractor.get_request_body()
-        
-        if "traceback" not in exclude_fields:
-            error_data['traceback'] = ''.join(traceback.format_tb(self.exc.__traceback__))
-        
-        if "error_type" not in exclude_fields:
-            error_data['error_type'] = self.exc.type if isinstance(self.exc, UserErrors) else type(self.exc).__name__
+            error_data['error_type'] = type(self.exc).__name__
 
         return error_data
         
@@ -157,20 +191,46 @@ class ExceptionHandler:
     
     async def database_error_handler(self):
         self.exc: DatabaseErrors
-        data = await self.prepare_error_data()
-        self.log_error()
         
-        return JSONResponse(
-            content={
-                'details': {
-                    'type': self.exc.type,
-                    'message': self.exc.message
+        try:
+            # Get error attributes safely
+            error_type = getattr(self.exc, 'type', type(self.exc).__name__)
+            error_message = getattr(self.exc, 'message', str(self.exc))
+            response_code = getattr(self.exc, 'response_code', 500)
+            
+            # Return response immediately
+            response = JSONResponse(
+                content={
+                    'details': {
+                        'type': error_type,
+                        'message': error_message
+                    },
+                    'message': error_message,
+                    'success': False
                 },
-                'message': self.exc.message,
-                'success': False
-            },
-            status_code=self.exc.response_code
-        )
+                status_code=response_code
+            )
+            
+            # Log error synchronously (non-blocking)
+            try:
+                self.log_error()
+            except Exception as log_error:
+                logger.warning(f"Failed to log database error: {str(log_error)}")
+            
+            return response
+        except Exception as e:
+            logger.error(f"Error in database_error_handler: {str(e)}", exc_info=True)
+            return JSONResponse(
+                content={
+                    'details': {
+                        'type': 'DatabaseError',
+                        'message': 'Database operation failed'
+                    },
+                    'message': str(self.exc),
+                    'success': False
+                },
+                status_code=getattr(self.exc, 'response_code', 500)
+            )
     
     async def http_exception_handler(self):
         return JSONResponse(
@@ -188,60 +248,172 @@ class ExceptionHandler:
 
     async def user_error_handler(self):
         self.exc: UserErrors
-        data = await self.prepare_error_data()
-        self.log_error()
-        response_data = self.exc.data if hasattr(self.exc, 'data') else {}
         
-        return JSONResponse(
-            content={
-                'details': {
-                    'type': self.exc.type,
-                    'message': self.exc.message
+        try:
+            # Safely get error attributes with fallbacks - do this FIRST
+            error_type = getattr(self.exc, 'type', type(self.exc).__name__)
+            error_message = getattr(self.exc, 'message', str(self.exc))
+            response_code = getattr(self.exc, 'response_code', 400)
+            response_data = getattr(self.exc, 'data', {})
+            
+            # Return response immediately - don't wait for logging/preparation
+            # Logging will happen after response is sent
+            response = JSONResponse(
+                content={
+                    'details': {
+                        'type': error_type,
+                        'message': error_message
+                    },
+                    'message': error_message,
+                    'data': response_data,
+                    'success': False
                 },
-                'message': self.exc.message,
-                'data': response_data,
-                'success': False
-            },
-            status_code=self.exc.response_code
-        )
+                status_code=response_code
+            )
+            
+            # Log error synchronously (quick operation, no request body reading)
+            try:
+                self.log_error()
+            except Exception as log_error:
+                logger.warning(f"Failed to log error: {str(log_error)}")
+            
+            return response
+            
+        except Exception as e:
+            # If error handler itself fails, log and return generic error
+            logger.error(f"Error in user_error_handler: {str(e)}", exc_info=True)
+            
+            # Try to at least return the right status code
+            response_code = getattr(self.exc, 'response_code', 500) if hasattr(self.exc, 'response_code') else 500
+            error_message = getattr(self.exc, 'message', str(self.exc)) if hasattr(self.exc, 'message') else str(self.exc)
+            
+            return JSONResponse(
+                content={
+                    'details': {
+                        'type': 'ErrorHandlerException',
+                        'message': 'An error occurred while processing the error'
+                    },
+                    'message': error_message,
+                    'success': False
+                },
+                status_code=response_code
+            )
 
     async def client_error_handler(self):
         self.exc: ClientErrors
-        data = await self.prepare_error_data()
-        self.log_error()
         
-        return JSONResponse(
-            content={
-                'message': self.exc.message,
-                'success': False
-            },
-            status_code=self.exc.response_code
-        )
+        try:
+            # Get error attributes safely
+            error_message = getattr(self.exc, 'message', str(self.exc))
+            response_code = getattr(self.exc, 'response_code', 400)
+            
+            # Return response immediately
+            response = JSONResponse(
+                content={
+                    'message': error_message,
+                    'success': False
+                },
+                status_code=response_code
+            )
+            
+            # Log error synchronously (non-blocking)
+            try:
+                self.log_error()
+            except Exception as log_error:
+                logger.warning(f"Failed to log client error: {str(log_error)}")
+            
+            return response
+        except Exception as e:
+            logger.error(f"Error in client_error_handler: {str(e)}", exc_info=True)
+            return JSONResponse(
+                content={
+                    'message': str(self.exc),
+                    'success': False
+                },
+                status_code=getattr(self.exc, 'response_code', 400)
+            )
 
     async def unknown_error_handler(self):
-        data = await self.prepare_error_data()
-        self.log_error()
-        # Publish error message
-        await self._publish_error_message(data)
-
-        return JSONResponse(
-            content={
-                'details': {
-                    'type': 'Internal Server Error',
-                    'message': 'Internal Server Error'
+        try:
+            # Return response immediately
+            response = JSONResponse(
+                content={
+                    'details': {
+                        'type': 'Internal Server Error',
+                        'message': 'Internal Server Error'
+                    },
+                    'message': 'Internal Server Error', 
+                    'success': False
                 },
-                'message': 'Internal Server Error', 
-                'success': False
-            },
-            status_code=500
-        )
+                status_code=500
+            )
+            
+            # Try to log and publish error message in background (non-blocking)
+            try:
+                self.log_error()
+                # Try to prepare error data without request body to avoid hanging
+                try:
+                    data = await self.prepare_error_data(exclude_fields=["request_data"])
+                    await self._publish_error_message(data)
+                except Exception as prep_error:
+                    logger.warning(f"Failed to prepare/publish error message: {str(prep_error)}")
+            except Exception as log_error:
+                logger.warning(f"Failed to log unknown error: {str(log_error)}")
+            
+            return response
+        except Exception as e:
+            # If even the error handler fails, return minimal response
+            logger.error(f"Critical error in unknown_error_handler: {str(e)}", exc_info=True)
+            return JSONResponse(
+                content={
+                    'details': {
+                        'type': 'Internal Server Error',
+                        'message': 'An unexpected error occurred'
+                    },
+                    'message': 'Internal Server Error',
+                    'success': False
+                },
+                status_code=500
+            )
 
 
 # FastAPI exception handler functions
 async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler for FastAPI."""
-    handler = ExceptionHandler(request, exc)
-    return await handler.handle_exception()
+    # Log that we're handling the exception
+    logger.info(f"Global exception handler called for: {type(exc).__name__}")
+    
+    try:
+        handler = ExceptionHandler(request, exc)
+        result = await handler.handle_exception()
+        logger.info(f"Exception handler completed successfully for: {type(exc).__name__}")
+        return result
+    except Exception as handler_error:
+        # If exception handler itself fails, log and return generic error
+        logger.error(f"Exception handler failed: {str(handler_error)}", exc_info=True)
+        logger.error(f"Original exception: {str(exc)}", exc_info=True)
+        
+        # Try to get response code from original exception if it's a UserErrors
+        if isinstance(exc, UserErrors):
+            response_code = getattr(exc, 'response_code', 500)
+            error_message = getattr(exc, 'message', str(exc))
+            error_type = getattr(exc, 'type', type(exc).__name__)
+        else:
+            response_code = 500
+            error_message = str(exc) if exc else 'Unknown error'
+            error_type = type(exc).__name__
+        
+        return JSONResponse(
+            content={
+                'details': {
+                    'type': error_type,
+                    'message': error_message
+                },
+                'message': error_message,
+                'success': False
+            },
+            status_code=response_code
+        )
 
 
 async def http_exception_handler(request: Request, exc: HTTPException):
