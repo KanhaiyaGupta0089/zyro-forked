@@ -9,5 +9,9 @@ api_router = APIRouter()
 # api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 
 from app.api.v1.auth import auth_router
+# from app.api.v1.organization import organization_router
+from app.api.v1.dashboard import dashboard_router
 api_router.include_router(auth_router,prefix='/auth',tags=['Authentication'])
+api_router.include_router(dashboard_router,prefix='/dashboard',tags=['Dashboard'])
+
 

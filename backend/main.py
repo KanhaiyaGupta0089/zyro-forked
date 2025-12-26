@@ -8,6 +8,7 @@ from app.common.exception_handler import (
     http_exception_handler,
     validation_exception_handler
 )
+from app.common.errors import UserErrors, ClientErrors, DatabaseErrors
 
 app = FastAPI(
     title=APP_NAME,
@@ -32,8 +33,13 @@ app.add_middleware(
 )
 
 # Register exception handlers
+# Register specific exception types first (more specific to less specific)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(DatabaseErrors, global_exception_handler)
+app.add_exception_handler(UserErrors, global_exception_handler)
+app.add_exception_handler(ClientErrors, global_exception_handler)
+# Register generic Exception handler last as fallback
 app.add_exception_handler(Exception, global_exception_handler)
 
 # Note: Database tables should be created using Alembic migrations

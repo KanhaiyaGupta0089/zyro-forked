@@ -6,14 +6,19 @@ from app.core.conf import DATABASE_URL, DEBUG
 engine = create_async_engine(
     DATABASE_URL,
     echo=DEBUG,
-    future=True
+    future=True,
+    pool_size=5,          # max persistent connections
+    max_overflow=5,       # allow temporary burst
+    pool_timeout=30,      # fail fast instead of hanging
+    pool_recycle=1800, 
 )
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
-    expire_on_commit=False
+    expire_on_commit=False,
+  
 )
 
 # Base class for models

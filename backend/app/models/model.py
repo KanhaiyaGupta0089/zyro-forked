@@ -2,7 +2,7 @@ from app.db.connection import Base
 from sqlalchemy import (
     Column, Integer, String, Boolean,
     DateTime, ForeignKey, func, Enum,
-    Date, Numeric, UniqueConstraint
+    Date, Numeric, UniqueConstraint, Index
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -25,6 +25,10 @@ class TimestampMixin:
 
 class User(Base, TimestampMixin):
     __tablename__ = "user"
+    __table_args__ = (
+        Index('idx_user_role', 'role'),
+        Index('idx_user_status', 'status'),
+    )
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
@@ -42,6 +46,9 @@ class User(Base, TimestampMixin):
 
 class Organization(Base, TimestampMixin):
     __tablename__ = "organization"
+    __table_args__ = (
+        Index('idx_org_status', 'status'),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
@@ -78,6 +85,10 @@ class OrganizationMember(Base, TimestampMixin):
 
 class Project(Base, TimestampMixin):
     __tablename__ = "project"
+    __table_args__ = (
+        Index('idx_project_status', 'status'),
+        Index('idx_project_created_by', 'created_by'),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
@@ -148,6 +159,13 @@ class Sprint(Base, TimestampMixin):
 
 class Issue(Base, TimestampMixin):
     __tablename__ = "issue"
+    __table_args__ = (
+        Index('idx_issue_status', 'status'),
+        Index('idx_issue_type', 'type'),
+        Index('idx_issue_sprint_id', 'sprint_id'),
+        Index('idx_issue_assigned_to', 'assigned_to'),
+        Index('idx_issue_assigned_by', 'assigned_by'),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
@@ -165,7 +183,7 @@ class Issue(Base, TimestampMixin):
     assigned_to = Column(Integer, ForeignKey(User.id))
     assigned_by = Column(Integer, ForeignKey(User.id))
 
-    sprint = relationship("Sprint", back_populates="issues")
+    sprint = relationship("Sprint", back_populates="issues")    
 
     assignee = relationship("User", foreign_keys=[assigned_to], lazy="selectin")
     reporter = relationship("User", foreign_keys=[assigned_by], lazy="selectin")
