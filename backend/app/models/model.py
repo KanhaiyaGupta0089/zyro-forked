@@ -12,7 +12,7 @@ from app.core.enums import (
     Role, UserStatus,
     ProjectStatus, SprintStatus,
     IssueStatus, IssueType,
-    OrganizationStatus
+    OrganizationStatus,Priority
 )
 
 
@@ -179,7 +179,9 @@ class Issue(Base, TimestampMixin):
     type = Column(Enum(IssueType, name="issue_type_enum"),
                   default=IssueType.OTHER,
                   nullable=False)
-
+    priority = Column(Enum(Priority,name = 'priority'),
+                    default = Priority.MODERATE,
+                    nullable = True)
     sprint_id = Column(Integer, ForeignKey(Sprint.id))
     assigned_to = Column(Integer, ForeignKey(User.id))
     assigned_by = Column(Integer, ForeignKey(User.id))

@@ -23,6 +23,9 @@ async def get_current_user(
     token = credentials.credentials
     
     try:
+        print("token is------",credentials)
+        token = credentials.credentials
+    
         # Decode token
         payload = decode_token(token)
         user_id = payload.get("user_id")

@@ -47,4 +47,11 @@ class IssueType(Enum):
 class OrganizationStatus(Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
+
+class Priority(Enum):
+    LOW = 'low'
+    MODERATE = 'moderate'
+    HIGH = 'high'
+    CRITICAL ='critical'
+
     
