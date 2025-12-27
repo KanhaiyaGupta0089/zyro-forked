@@ -1,22 +1,13 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.connection import get_db
-from app.db.crud.organization_crud import get_all_organizations_by_user
 from app.core.dependencies import get_current_user
 from app.models.model import User
 from app.db.crud.user import get_user_by_id
 from app.core.enums import Role
 from app.common.errors import NotFoundError, PermissionDeniedError
-from app.schemas.dashboard import APIResponse
-from app.db.crud.project_crud import (
-    get_all_projects,
-    get_team_members_count
-)
-from app.db.crud.issue_crud import (
-    get_all_active_issues
-)
-from app.db.crud.sprint import get_all_active_sprints
-from app.db.crud.dashboard_crud import get_recent_projects_dashboard_data,get_recent_issues_dashboard_data
+from app.db.crud.project_crud import get_all_projects
+
 dashboard_router = APIRouter()
 
 @dashboard_router.get("/manager")
@@ -125,13 +116,64 @@ async def get_manager_dashboard(
     
     
    
-    # Organization Name
-    # # my projects
-    # active issues
-    #  team members
-    #  active sprints
-    #  recent projects
-    # recent issues
+from app.models.model import Issue
+from app.models.model import Sprint
+from app.models.model import User,Project
+from sqlalchemy import select, func, distinct
+from app.core.enums import IssueStatus,Priority
+
+from app.models.model import ProjectMember
+@dashboard_router.get("/employee")
+async def get_Employee_dashboard(  db:AsyncSession = Depends(get_db),user:User = Depends(get_current_user)):
+    # if user.role != Role.EMPLOYEE.value:
+    #     raise PermissionDeniedError(message="User role is not Admin. Only Employee can access this dashboard.")
+    output_dict = {}
+    print("user is",user)
+
+    user_id = user.id
+    stmt = (select(Issue).join(Sprint).where(
+        Issue.assigned_to == user_id,
+        Issue.status != IssueStatus.COMPLETED,
+        Sprint.end_date >= func.current_date()
+    )
+    .order_by(Sprint.end_date.asc())
+    .limit(4)
+)
+
+    result = await db.execute(stmt)
+    urgent_issues = result.scalars().all()
+
+    project_query = (
+    select(Project.name)  
+    .join(ProjectMember, Project.id == ProjectMember.project_id) 
+    .where(ProjectMember.user_id == user_id)  
+)
+
+    project_result = await db.execute(project_query)
+    project_ids = project_result.scalars().all()
+    task_stats_stmt = select(
+    func.count().filter(Issue.priority == Priority.CRITICAL).label("critical"),
+    func.count().filter(Issue.status == IssueStatus.IN_PROGRESS).label("active"),
+    func.count().filter(Issue.status == IssueStatus.TODO).label("pending"),
+    ).where(Issue.assigned_to == user_id)
+
+    
+    stats_result = await db.execute(task_stats_stmt)
+    stats = stats_result.one()
+
+    print("++++++++++++++++++++++++++++")
+   
+    return {
+        "critical_issue": stats.critical or 0,
+        "active_issue": stats.active or 0,
+        "pending_issue": stats.pending or 0,
+        "total_project": project_ids,
+        "urgent_issue": urgent_issues,
+    }
+    
+
+
+
 
 
 
