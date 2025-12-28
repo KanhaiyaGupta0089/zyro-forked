@@ -62,12 +62,3 @@ def decode_token(token: str) -> dict:
         raise ValueError("Invalid token")
 
 
-def get_current_user(token:str) -> dict:
-
-    payload = decode_token(token)
-
-    
-    user_id = payload.get("user_id")
-    if not user_id:
-        raise ValueError("User ID not found in token")
-    return user_id

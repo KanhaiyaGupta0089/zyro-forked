@@ -12,7 +12,7 @@ from app.core.enums import (
     Role, UserStatus,
     ProjectStatus, SprintStatus,
     IssueStatus, IssueType,
-    OrganizationStatus, Priority
+    OrganizationStatus,Priority
 )
 
 

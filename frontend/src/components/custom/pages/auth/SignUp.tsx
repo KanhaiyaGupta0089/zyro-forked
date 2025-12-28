@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useDispatch, useSelector } from "react-redux";
+import { registerUser } from "../../../../redux/auth/authThunks";
+import { clearAuthError } from "../../../../redux/auth/authSlice";
+import { RootState, AppDispatch } from "../../../../redux/store";
 
 import img1 from "../../../../assets/img1.png";
 import img2 from "../../../../assets/img2.png";
@@ -20,6 +24,11 @@ interface ValidationErrors {
 /* Component */
 /* ---------------------------------- */
 const Signup: React.FC = () => {
+  const dispatch: AppDispatch = useDispatch();
+  const navigate = useNavigate();
+  
+  const { loading } = useSelector((state: RootState) => state.auth);
+  
   const slideshowImages = [
     { src: img1, alt: "Streamline your project" },
     { src: img2, alt: "Track tasks and issues easily" },
@@ -31,13 +40,15 @@ const Signup: React.FC = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] =
     useState<boolean>(false);
 
-  const navigate = useNavigate();
+  // Clear auth error when component mounts
+  useEffect(() => {
+    dispatch(clearAuthError());
+  }, [dispatch]);
 
   /* ---------------------------------- */
   /* Validation */
@@ -91,41 +102,36 @@ const Signup: React.FC = () => {
     const formErrors = validateForm();
 
     if (Object.keys(formErrors).length > 0) {
-      // Show validation errors one by one with delays
-      const errorValues = Object.values(formErrors);
-      errorValues.forEach((error, index) => {
-        if (error) {
-          setTimeout(() => {
-            toast.error(error);
-          }, index * 1000); // 1 second delay between each toast
-        }
-      });
+      // Show only the first validation error
+      const firstError = Object.values(formErrors)[0];
+      if (firstError) {
+        toast.error(firstError);
+      }
       return;
     }
 
     try {
-      setIsLoading(true);
+      // Dispatch register action
+      const result = await dispatch(registerUser({ name, email, password }));
+      
+      if (registerUser.fulfilled.match(result)) {
+        // Show single success message
+        toast.success("Account created! Please check your email for verification 📧");
 
-      // 🔐 API CALL WILL GO HERE LATER
-      // await api.post("/auth/register", { name, email, password });
-
-      // Show success messages one by one
-      toast.success("Account created successfully 🎉");
-      setTimeout(() => {
-        toast.success("Please check your email for verification");
-      }, 1500);
-
-      setTimeout(() => {
-        navigate("/login");
-      }, 3000);
+        setTimeout(() => {
+          navigate("/login");
+        }, 3000);
+      } else {
+        // Handle error
+        const errorMessage = result.payload || "Signup failed. Please try again.";
+        toast.error(String(errorMessage));
+      }
     } catch (err: unknown) {
       const message =
         err instanceof Error
           ? err.message
           : "Signup failed. Please try again.";
       toast.error(message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -243,10 +249,10 @@ const Signup: React.FC = () => {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={loading}
               className="mt-5 w-full bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white font-medium py-3 rounded-lg transition hover:scale-[1.02] disabled:opacity-50"
             >
-              {isLoading ? "Creating Account..." : "Sign Up"}
+              {loading ? "Creating Account..." : "Sign Up"}
             </button>
 
             <div className="block md:hidden text-center mt-4">
