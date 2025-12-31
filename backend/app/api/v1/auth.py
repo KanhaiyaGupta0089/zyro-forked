@@ -9,10 +9,12 @@ from app.db.crud.user import (
     get_user_by_id
 )
 from app.common.errors import CredentialError,InvalidDataError
+
 from app.core.security import (
     create_access_token,
     create_refresh_token,
-    verify_password
+    verify_password,
+    decode_token
 )
 auth_router = APIRouter()
 
@@ -42,7 +44,8 @@ async def signup(
     # generate jwt token
     payload = {
         "user_id":user.id,
-        "email":user.email
+        "email":user.email,
+        "role":user.role
     }
     access_token = await create_access_token(payload)
     refresh_token = await create_refresh_token(payload)
@@ -111,6 +114,49 @@ async def login(
         }
     }
 
+@auth_router.post("/refresh")
+async def refresh_token(
+    request:dict,
+    session:AsyncSession = Depends(get_db)
+):
+    """
+    Refresh token endpoint with refresh token
+    """
+    refresh_token = request.get("refresh_token")
+    if not refresh_token:
+        raise InvalidDataError(message="Refresh token is required")
+    
+    payload = decode_token(refresh_token)
+    user_id = payload.get("user_id")
+    user = await get_user_by_id(user_id=user_id,session=session)
+    if not user:
+        raise CredentialError(message="User not found")
+    
+    new_payload = {
+        "user_id":user.id,
+        "email":user.email,
+        "role":user.role
+    }
+
+    new_access_token = await create_access_token(new_payload)
+    new_refresh_token = await create_refresh_token(new_payload)
+
+    user_data = {
+        "id":user.id,
+        "name":user.name,
+        "email":user.email,
+        "role":user.role
+    }
+
+    return {
+        "status":"success",
+        "message":"Token refreshed successfully",
+        "data":{
+            "access_token":new_access_token,
+            "refresh_token":new_refresh_token,
+            "user_data":user_data
+        }
+    }
     
 
     

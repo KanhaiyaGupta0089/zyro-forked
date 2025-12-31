@@ -33,12 +33,12 @@ class User(Base, TimestampMixin):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     email = Column(String, nullable=False, unique=True)
-    password = Column(String, nullable=False)
+    password = Column(String, nullable=True)
 
-    role = Column(Enum(Role), nullable=False)
+    role = Column(Enum(Role, values_callable=lambda enum: [e.value for e in enum]), nullable=False)
     story_point = Column(Integer, default=0)
 
-    status = Column(Enum(UserStatus), default=UserStatus.ACTIVE, nullable=False)
+    status = Column(Enum(UserStatus,values_callable=lambda enum: [e.value for e in enum]), default=UserStatus.ACTIVE, nullable=False)
     
 
 
@@ -56,8 +56,9 @@ class Organization(Base, TimestampMixin):
 
     owner_id = Column(Integer, ForeignKey(User.id), nullable=False)
 
-    status = Column(Enum(OrganizationStatus, name="organization_enum"),
+    status = Column(Enum(OrganizationStatus, name="organization_enum",
                     default=OrganizationStatus.INACTIVE,
+                    values_callable=lambda enum: [e.value for e in enum]),
                     nullable=False)
 
     data = Column(JSONB)
@@ -95,8 +96,9 @@ class Project(Base, TimestampMixin):
     name = Column(String, nullable=False)
     description = Column(String)
 
-    status = Column(Enum(ProjectStatus, name="project_enum"),
+    status = Column(Enum(ProjectStatus, name="project_enum",
                     default=ProjectStatus.INACTIVE,
+                    values_callable=lambda enum: [e.value for e in enum]),
                     nullable=False)
 
     created_by = Column(Integer, ForeignKey(User.id), nullable=True)
@@ -148,9 +150,10 @@ class Sprint(Base, TimestampMixin):
     start_date = Column(Date)
     end_date = Column(Date)
 
-    status = Column(Enum(SprintStatus, name="sprint_enum"),
+    status = Column(Enum(SprintStatus, name="sprint_enum",
                     default=SprintStatus.TODO,
-                    nullable=False)
+                    values_callable=lambda enum: [e.value for e in enum]),
+                    nullable=False) 
 
     data = Column(JSONB)
 
@@ -177,11 +180,11 @@ class Issue(Base, TimestampMixin):
 
     story_point = Column(Integer, default=0)
 
-    status = Column(Enum(IssueStatus), default=IssueStatus.TODO, nullable=False)
-    type = Column(Enum(IssueType, name="issue_type_enum"),
+    status = Column(Enum(IssueStatus, values_callable=lambda enum: [e.value for e in enum]), default=IssueStatus.TODO, nullable=False)
+    type = Column(Enum(IssueType, name="issue_type_enum", values_callable=lambda enum: [e.value for e in enum]),
                   default=IssueType.OTHER,
                   nullable=False)
-    priority = Column(Enum(Priority,name = 'priority'),
+    priority = Column(Enum(Priority,name = 'priority', values_callable=lambda enum: [e.value for e in enum]),
                     default = Priority.MODERATE,
                     nullable = True)
     sprint_id = Column(Integer, ForeignKey(Sprint.id),nullable=True)
@@ -197,6 +200,19 @@ class Issue(Base, TimestampMixin):
     project_id = Column(Integer, ForeignKey(Project.id), nullable=False)
 
     project = relationship("Project", foreign_keys=[project_id], lazy="selectin")
+    parent_issue_id = Column(Integer, ForeignKey("issue.id"), nullable=True)
+
+    parent_issue = relationship("Issue",
+    foreign_keys=[parent_issue_id],
+    remote_side=[id],
+    back_populates="sub_issues",
+    )
+
+    sub_issues = relationship(
+        "Issue",
+        back_populates="parent_issue",
+        cascade="all, delete"
+    )
 
 
 # ================= WORK LOGS =================
@@ -215,3 +231,14 @@ class Logs(Base, TimestampMixin):
     description = Column(String)
 
     issue = relationship("Issue", back_populates="logs")
+
+
+class Invite_Tokens(Base, TimestampMixin):
+    __tablename__ = 'invite_tokens'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey(User.id), nullable=False)
+    token_hash = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

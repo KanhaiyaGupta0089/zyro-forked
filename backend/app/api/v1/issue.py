@@ -1,9 +1,12 @@
+from app.services.email_service import send_email
+from app.tasks.email_task import send_email_task
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.connection import get_db
 from app.core.dependencies import get_current_user, allow_min_role
 from app.models.model import User
-from app.common.errors import NotFoundError,DatabaseErrors
+from app.common.errors import NotFoundError,DatabaseErrors,PermissionDeniedError
+from app.core.enums import IssueStatus
 from fastapi import status
 from app.schemas.issue import CreateIssueRequest,UpdateIssueRequest
 from app.core.enums import Role
@@ -14,7 +17,8 @@ from app.db.crud.issue_crud import (
     create_issue,
     update_issue,
     delete_issue,
-    get_user_issues
+    get_user_issues,
+    get_all_sub_issues
 )
 
 issue_router = APIRouter()
@@ -97,22 +101,35 @@ async def update_issue_api(
     request:UpdateIssueRequest,
     issue_id:int,
     session:AsyncSession = Depends(get_db),
-    current_user: User = Depends(allow_min_role(Role.MANAGER)),
+    current_user: User = Depends(allow_min_role(Role.EMPLOYEE)),
 ):
     """
     Update an issue by id
     """
     issue_data = request.model_dump(exclude_unset=True, exclude_none=True)
+    print(issue_data)
+    issue_status = issue_data.get('status',None)
+
+
+    if issue_status and issue_status == IssueStatus.COMPLETED and current_user.role == Role.EMPLOYEE:
+        raise PermissionDeniedError(message="You are not authorized to update issue status", response_code=status.HTTP_403_FORBIDDEN)
+    
     updated_issue = await update_issue(session=session,issue_id=issue_id,payload=issue_data)
 
     if not updated_issue:
         raise DatabaseErrors(message="Failed to update issue", response_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+    
+    subject = "Issue Status Updated"
+    body = f"""
+Hi,
+your related issue status updated to {issue_data['status']}
+"""
+    send_email_task.delay(subject=subject,body= body , to_email=[current_user.email])
     return {
         "success": True,
         "message": "Issue updated successfully",
         "data": updated_issue
-    }
+    }   
 
 @issue_router.delete("/{issue_id}")
 async def delete_issue_api(
@@ -132,3 +149,30 @@ async def delete_issue_api(
         "success": True,
         "message": "Issue deleted successfully",
     }
+
+@issue_router.get("/sub-issues/{issue_id}")
+async def get_all_sub_issues_api(
+    issue_id:int,
+    session:AsyncSession = Depends(get_db),
+    current_user:User = Depends(allow_min_role(Role.EMPLOYEE))
+):
+    """
+    Get all sub issues for a given issue
+    """
+
+    sub_issues = await get_all_sub_issues(
+        issue_id=issue_id,
+        session=session
+    )
+
+    return {
+        "success": True,
+        "message": "Sub issues fetched successfully",
+        "data": sub_issues if sub_issues else []
+    }
+
+
+
+
+   
+    

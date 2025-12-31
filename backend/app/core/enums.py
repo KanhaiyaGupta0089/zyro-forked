@@ -9,6 +9,7 @@ class UserStatus(Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     BLOCKED = "blocked"
+    INVITED = "invited"
 
 class ProjectStatus(Enum):
     ACTIVE = "active"

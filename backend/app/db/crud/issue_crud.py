@@ -144,3 +144,16 @@ async def get_user_issues(user_id:int,session:AsyncSession) -> List[Issue]:
     result = await session.execute(stmt)
     issues = result.scalars().all()
     return list(issues)
+
+async def get_all_sub_issues(issue_id:int,session:AsyncSession) -> List[Issue]:
+    """
+    Function to get all sub issues of an issues
+    """
+
+    stmt = select(Issue).where(
+        Issue.parent_issue_id == issue_id,
+    )
+
+    result = await session.execute(stmt)
+    sub_issues = result.scalars().all()
+    return list(sub_issues)
