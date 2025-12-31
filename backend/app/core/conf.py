@@ -49,3 +49,13 @@ else:
         JWT_REFRESH_TOKEN_EXPIRE_MINUTES = eval(_jwt_refresh_expire) if '*' in _jwt_refresh_expire or '+' in _jwt_refresh_expire else 10080
     except:
         JWT_REFRESH_TOKEN_EXPIRE_MINUTES = 10080  # Default: 7 days
+
+
+# Email Settings
+    
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = os.getenv("EMAIL_PORT")
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")

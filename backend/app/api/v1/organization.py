@@ -29,20 +29,20 @@ async def get_all_organizations(
         session=session
     )
     
-    # Convert to dict format for JSON response - optimized list comprehension
-    orgs_data = [
-        {
+    # Convert to dict format for JSON response
+    orgs_data = []
+    for org in organizations:
+        org_dict = {
             "id": org.id,
             "name": org.name,
             "description": org.description,
             "owner_id": org.owner_id,
-            "status": org.status.value if org.status else "inactive",
+            "status": org.status if org.status else "inactive",
             "data": org.data,
             "created_at": org.created_at.isoformat() if org.created_at else None,
             "updated_at": org.updated_at.isoformat() if org.updated_at else None,
         }
-        for org in organizations
-    ]
+        orgs_data.append(org_dict)
     
     return {
         "success": True,
@@ -75,7 +75,7 @@ async def create_organization_api(
             "name": organization.name,
             "description": organization.description,
             "owner_id": organization.owner_id,
-            "status": organization.status.value if organization.status else "inactive",
+            "status": organization.status if organization.status else "inactive",
             "data": organization.data,
             "created_at": organization.created_at.isoformat() if organization.created_at else None,
             "updated_at": organization.updated_at.isoformat() if organization.updated_at else None,

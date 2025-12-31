@@ -153,7 +153,7 @@ async def get_recent_issues_dashboard_data(user_id:int,session:AsyncSession,limi
             "task_id": issue.id,
             "task_name": issue.name,
             "project_name": project_name,
-            "status": issue.status.value if hasattr(issue.status, 'value') else str(issue.status),
+            "status": issue.status if hasattr(issue.status, 'value') else str(issue.status),
             "priority": "high",  # Add priority field to Issue model if needed
             "assigned_to": assigned_to_name,
             "hours_ago": hours_ago

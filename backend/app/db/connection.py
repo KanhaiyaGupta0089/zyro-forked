@@ -5,7 +5,7 @@ from app.core.conf import DATABASE_URL, DEBUG
 # Create async engine
 engine = create_async_engine(
     DATABASE_URL,
-    echo=DEBUG,
+    echo=False,
     future=True,
     pool_size=5,          # max persistent connections
     max_overflow=5,       # allow temporary burst
