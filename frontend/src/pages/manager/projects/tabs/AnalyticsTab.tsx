@@ -28,13 +28,16 @@ const AnalyticsTab = () => {
         const projectRes = await projectApi.getProjectById(Number(id));
         setProject(projectRes);
         
-        const issuesRes = await issueApi.getIssues();
-        const projectIssues = issuesRes.filter((issue: any) => issue.project_id === Number(id));
+        // Get issues for this project using the dedicated API endpoint
+        const projectIssues = await issueApi.getIssuesByProject(Number(id));
         setIssues(projectIssues);
         
         // Calculate analytics data
         const totalIssues = projectIssues.length;
-        const completedIssues = projectIssues.filter((issue: any) => issue.status?.toLowerCase() === 'completed').length;
+        const completedIssues = projectIssues.filter((issue: any) => 
+          issue.status?.toLowerCase() === 'completed' || 
+          issue.status?.toLowerCase() === 'closed'
+        ).length;
         const openIssues = projectIssues.filter((issue: any) => 
           issue.status?.toLowerCase() === 'open' || 
           issue.status?.toLowerCase() === 'todo'
@@ -44,11 +47,21 @@ const AnalyticsTab = () => {
           issue.status?.toLowerCase() === 'in-progress'
         ).length;
         const overdueIssues = projectIssues.filter((issue: any) => {
-          // Check if issue is overdue (for demo purposes, we'll mark issues without end_date as not overdue)
-          return false; // In real app, we would check if current date is past the due date
+          // Check if issue is overdue by comparing due date with current date
+          if (!issue.due_date) return false;
+          return new Date(issue.due_date) < new Date() && 
+                 issue.status?.toLowerCase() !== 'completed' && 
+                 issue.status?.toLowerCase() !== 'closed';
         }).length;
         
         const completionRate = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
+        
+        // Calculate additional metrics
+        const priorityBreakdown = {
+          high: projectIssues.filter((issue: any) => issue.priority?.toLowerCase() === 'high' || issue.priority?.toLowerCase() === 'critical').length,
+          medium: projectIssues.filter((issue: any) => issue.priority?.toLowerCase() === 'medium' || issue.priority?.toLowerCase() === 'moderate').length,
+          low: projectIssues.filter((issue: any) => issue.priority?.toLowerCase() === 'low').length,
+        };
         
         setAnalyticsData({
           totalIssues,
@@ -57,7 +70,8 @@ const AnalyticsTab = () => {
           inProgressIssues,
           overdueIssues,
           completionRate,
-          teamSize: 1 // Using default value since team members not in project object
+          priorityBreakdown,
+          teamSize: projectRes.teamMembers || 1 // Using project's team members if available
         });
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -237,17 +251,17 @@ const AnalyticsTab = () => {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">High Priority</span>
-              <span className="font-medium">12</span>
+              <span className="font-medium">{analyticsData.priorityBreakdown?.high || 0}</span>
             </div>
             
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Medium Priority</span>
-              <span className="font-medium">24</span>
+              <span className="font-medium">{analyticsData.priorityBreakdown?.medium || 0}</span>
             </div>
             
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Low Priority</span>
-              <span className="font-medium">8</span>
+              <span className="font-medium">{analyticsData.priorityBreakdown?.low || 0}</span>
             </div>
           </div>
         </motion.div>

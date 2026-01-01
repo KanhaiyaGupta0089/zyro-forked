@@ -7,7 +7,7 @@ import {
   Calendar as CalendarIcon,
   User
 } from "lucide-react";
-import { issueApi } from "@/services/api/issueApi";
+import { issueApi, IssueStatus } from "@/services/api/issueApi";
 
 const KanbanTab = () => {
   const { id } = useParams();
@@ -24,16 +24,15 @@ const KanbanTab = () => {
     const fetchIssues = async () => {
       try {
         setLoading(true);
-        const res = await issueApi.getIssues();
-        // Filter issues by project ID
-        const projectIssues = res.filter((issue: any) => issue.project_id === Number(id));
+        // Get issues for this project using the dedicated API endpoint
+        const projectIssues = await issueApi.getIssuesByProject(Number(id));
         setIssues(projectIssues);
         
         // Group issues by status
         const groupedIssues = {
-          todo: projectIssues.filter((issue: any) => issue.status?.toLowerCase() === 'open' || issue.status?.toLowerCase() === 'todo'),
-          'in-progress': projectIssues.filter((issue: any) => issue.status?.toLowerCase() === 'in progress' || issue.status?.toLowerCase() === 'in-progress'),
-          review: projectIssues.filter((issue: any) => issue.status?.toLowerCase() === 'review'),
+          todo: projectIssues.filter((issue: any) => issue.status?.toLowerCase() === 'todo' || issue.status?.toLowerCase() === 'open'),
+          'in-progress': projectIssues.filter((issue: any) => issue.status?.toLowerCase() === 'in progress' || issue.status?.toLowerCase() === 'in-progress' || issue.status?.toLowerCase() === 'in_progress'),
+          review: projectIssues.filter((issue: any) => issue.status?.toLowerCase() === 'review' || issue.status?.toLowerCase() === 'qa'),
           done: projectIssues.filter((issue: any) => issue.status?.toLowerCase() === 'completed' || issue.status?.toLowerCase() === 'closed'),
         };
         
@@ -51,7 +50,7 @@ const KanbanTab = () => {
   const updateIssueStatus = async (issueId: number, newStatus: string) => {
     try {
       // Update the issue status in the backend
-      // await issueApi.updateIssue(issueId, { status: newStatus });
+      await issueApi.updateIssue(issueId, { status: newStatus as IssueStatus });
       
       // Update local state
       setIssues(prevIssues => 
@@ -63,14 +62,14 @@ const KanbanTab = () => {
       // Regroup issues
       const updatedColumns = {
         todo: issues.filter((issue: any) => 
-          (issue.status?.toLowerCase() === 'open' || issue.status?.toLowerCase() === 'todo') && issue.id !== issueId
-        ).concat(newStatus === 'open' || newStatus === 'todo' ? issues.find((i: any) => i.id === issueId) : []),
+          (issue.status?.toLowerCase() === 'todo' || issue.status?.toLowerCase() === 'open') && issue.id !== issueId
+        ).concat(newStatus === 'todo' || newStatus === 'open' ? issues.find((i: any) => i.id === issueId) : []),
         'in-progress': issues.filter((issue: any) => 
-          (issue.status?.toLowerCase() === 'in progress' || issue.status?.toLowerCase() === 'in-progress') && issue.id !== issueId
-        ).concat(newStatus === 'in progress' || newStatus === 'in-progress' ? issues.find((i: any) => i.id === issueId) : []),
+          (issue.status?.toLowerCase() === 'in progress' || issue.status?.toLowerCase() === 'in-progress' || issue.status?.toLowerCase() === 'in_progress') && issue.id !== issueId
+        ).concat(newStatus === 'in progress' || newStatus === 'in-progress' || newStatus === 'in_progress' ? issues.find((i: any) => i.id === issueId) : []),
         review: issues.filter((issue: any) => 
-          issue.status?.toLowerCase() === 'review' && issue.id !== issueId
-        ).concat(newStatus === 'review' ? issues.find((i: any) => i.id === issueId) : []),
+          (issue.status?.toLowerCase() === 'review' || issue.status?.toLowerCase() === 'qa') && issue.id !== issueId
+        ).concat((newStatus === 'review' || newStatus === 'qa') ? issues.find((i: any) => i.id === issueId) : []),
         done: issues.filter((issue: any) => 
           (issue.status?.toLowerCase() === 'completed' || issue.status?.toLowerCase() === 'closed') && issue.id !== issueId
         ).concat((newStatus === 'completed' || newStatus === 'closed') ? issues.find((i: any) => i.id === issueId) : []),
@@ -79,6 +78,20 @@ const KanbanTab = () => {
       setColumns(updatedColumns);
     } catch (error) {
       console.error('Error updating issue status:', error);
+      // Revert the UI if the API call fails
+      setIssues(prevIssues => 
+        prevIssues.map(issue => 
+          issue.id === issueId ? { ...issue, status: issues.find(i => i.id === issueId)?.status || issue.status } : issue
+        )
+      );
+      // Recalculate columns based on reverted state
+      const revertedColumns = {
+        todo: issues.filter((issue: any) => issue.status?.toLowerCase() === 'todo' || issue.status?.toLowerCase() === 'open'),
+        'in-progress': issues.filter((issue: any) => issue.status?.toLowerCase() === 'in progress' || issue.status?.toLowerCase() === 'in-progress' || issue.status?.toLowerCase() === 'in_progress'),
+        review: issues.filter((issue: any) => issue.status?.toLowerCase() === 'review' || issue.status?.toLowerCase() === 'qa'),
+        done: issues.filter((issue: any) => issue.status?.toLowerCase() === 'completed' || issue.status?.toLowerCase() === 'closed'),
+      };
+      setColumns(revertedColumns);
     }
   };
 
@@ -207,7 +220,7 @@ const KanbanTab = () => {
 };
 
 // Kanban Card Component
-const KanbanCard = ({ issue, onStatusChange }: { issue: any; onStatusChange: (status: string) => void; }) => {
+const KanbanCard = ({ issue, onStatusChange }: { issue: any; onStatusChange: (status: IssueStatus) => void; }) => {
   return (
     <motion.div
       layout
@@ -217,8 +230,8 @@ const KanbanCard = ({ issue, onStatusChange }: { issue: any; onStatusChange: (st
       className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
       onClick={() => {
         // Cycle through statuses
-        const statuses = ['open', 'in progress', 'review', 'completed'];
-        const currentIndex = statuses.indexOf(issue.status?.toLowerCase());
+        const statuses: IssueStatus[] = ['todo', 'in_progress', 'completed', 'cancelled'];
+        const currentIndex = statuses.indexOf(issue.status as IssueStatus);
         const nextIndex = (currentIndex + 1) % statuses.length;
         onStatusChange(statuses[nextIndex]);
       }}

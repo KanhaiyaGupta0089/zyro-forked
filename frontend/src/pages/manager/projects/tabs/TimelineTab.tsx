@@ -24,17 +24,40 @@ const TimelineTab = () => {
         const projectRes = await projectApi.getProjectById(Number(id));
         setProject(projectRes);
         
-        // Mock milestones data for now
-        const mockMilestones = [
-          { id: 1, name: "Project Kickoff", date: "2023-06-01", status: "completed", description: "Project initiation and planning" },
-          { id: 2, name: "Design Phase", date: "2023-06-15", status: "completed", description: "UI/UX design completion" },
-          { id: 3, name: "Development Phase 1", date: "2023-07-01", status: "completed", description: "Core features implementation" },
-          { id: 4, name: "Development Phase 2", date: "2023-07-15", status: "in-progress", description: "Advanced features implementation" },
-          { id: 5, name: "Testing Phase", date: "2023-08-01", status: "upcoming", description: "Quality assurance and testing" },
-          { id: 6, name: "Deployment", date: "2023-08-15", status: "upcoming", description: "Project deployment and launch" },
+        // In the future, fetch real milestones from an API endpoint like:
+        // const milestonesRes = await projectApi.getProjectMilestones(Number(id));
+        // For now, we'll create milestones based on project dates
+        const projectMilestones = [
+          { 
+            id: 1, 
+            name: "Project Start", 
+            date: projectRes.start_date, 
+            status: new Date(projectRes.start_date) <= new Date() ? "completed" : "upcoming", 
+            description: "Project officially started" 
+          },
+          { 
+            id: 2, 
+            name: "Midpoint", 
+            date: new Date(
+              new Date(projectRes.start_date).getTime() + 
+              (new Date(projectRes.end_date).getTime() - new Date(projectRes.start_date).getTime()) / 2
+            ).toISOString().split('T')[0],
+            status: new Date() > new Date(
+              new Date(projectRes.start_date).getTime() + 
+              (new Date(projectRes.end_date).getTime() - new Date(projectRes.start_date).getTime()) / 2
+            ) ? "completed" : "upcoming", 
+            description: "Project midpoint reached" 
+          },
+          { 
+            id: 3, 
+            name: "Project End", 
+            date: projectRes.end_date, 
+            status: new Date(projectRes.end_date) < new Date() ? "completed" : "upcoming", 
+            description: "Project completion" 
+          },
         ];
         
-        setMilestones(mockMilestones);
+        setMilestones(projectMilestones);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {

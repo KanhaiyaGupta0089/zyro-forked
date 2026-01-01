@@ -21,12 +21,12 @@ const OverviewTab = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         const projectRes = await projectApi.getProjectById(Number(id));
         setProject(projectRes);
         
-        // Get issues for this project
-        const issuesRes = await issueApi.getIssues(); // This will need to be updated to filter by project
-        const projectIssues = issuesRes.filter((issue: any) => issue.project_id === Number(id));
+        // Get issues for this project using the dedicated API endpoint
+        const projectIssues = await issueApi.getIssuesByProject(Number(id));
         setIssues(projectIssues);
       } catch (error) {
         console.error('Error fetching data:', error);

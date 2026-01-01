@@ -10,6 +10,7 @@ import {
   XCircle
 } from "lucide-react";
 import { projectApi } from "@/services/api/projectApi";
+import { userApi } from "@/services/api/userApi";
 
 const TeamTab = () => {
   const { id } = useParams();
@@ -25,14 +26,44 @@ const TeamTab = () => {
     const fetchTeam = async () => {
       try {
         setLoading(true);
-        // For now, we'll create mock team members since the API might not have this endpoint
-        const mockTeam = [
-          { id: 1, name: "Project Owner", email: "owner@example.com", role: "owner", avatar: "https://via.placeholder.com/40" },
-          { id: 2, name: "John Doe", email: "john@example.com", role: "admin", avatar: "https://via.placeholder.com/40" },
-          { id: 3, name: "Jane Smith", email: "jane@example.com", role: "member", avatar: "https://via.placeholder.com/40" },
-          { id: 4, name: "Bob Johnson", email: "bob@example.com", role: "member", avatar: "https://via.placeholder.com/40" },
-        ];
-        setTeamMembers(mockTeam);
+        // Get project details
+        const projectRes = await projectApi.getProjectById(Number(id));
+        
+        // Get all users from the system
+        const allUsers = await userApi.getUsers();
+        
+        // In a real implementation, there would be a specific endpoint to get project team members
+        // For now, we'll use all users and mark the project creator as owner
+        // and potentially filter based on project_id if user records contain project associations
+        
+        // Create team members data with the project creator as owner
+        let teamMembersData = [];
+        
+        // Find the project creator in the user list
+        const projectCreator = allUsers.find((user: any) => user.id === projectRes.created_by || user.name === projectRes.created_by);
+        
+        if (projectCreator) {
+          teamMembersData.push({
+            ...projectCreator,
+            role: "owner",
+            avatar: projectCreator.avatar || `https://ui-avatars.com/api/?name=${projectCreator.name || 'User'}&background=random`
+          });
+        }
+        
+        // Filter other users who might be associated with this project
+        // (In a real app, users would have project associations)
+        const otherMembers = allUsers
+          .filter((user: any) => user.id !== projectRes.created_by && user.name !== projectRes.created_by)
+          .slice(0, 3) // Limit to 3 additional members for demo
+          .map((user: any, index: number) => ({
+            ...user,
+            role: index === 0 ? "admin" : "member",
+            avatar: user.avatar || `https://ui-avatars.com/api/?name=${user.name || 'User'}&background=random`
+          }));
+        
+        teamMembersData = [...teamMembersData, ...otherMembers];
+        
+        setTeamMembers(teamMembersData);
         setError(null);
       } catch (err) {
         console.error('Error fetching team:', err);

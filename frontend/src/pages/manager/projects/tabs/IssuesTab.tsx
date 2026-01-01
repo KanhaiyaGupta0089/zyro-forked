@@ -27,9 +27,8 @@ const IssuesTab = () => {
     const fetchIssues = async () => {
       try {
         setLoading(true);
-        const res = await issueApi.getIssues();
-        // Filter issues by project ID
-        const projectIssues = res.filter((issue: any) => issue.project_id === Number(id));
+        // Get issues for this project using the dedicated API endpoint
+        const projectIssues = await issueApi.getIssuesByProject(Number(id));
         setIssues(projectIssues);
         setError(null);
       } catch (err) {
