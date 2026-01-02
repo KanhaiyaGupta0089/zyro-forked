@@ -34,12 +34,21 @@ class User(Base, TimestampMixin):
     name = Column(String, nullable=False)
     email = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=True)
-
     role = Column(Enum(Role, values_callable=lambda enum: [e.value for e in enum]), nullable=False)
     story_point = Column(Integer, default=0)
 
     status = Column(Enum(UserStatus,values_callable=lambda enum: [e.value for e in enum]), default=UserStatus.ACTIVE, nullable=False)
-    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "role": self.role,
+            "status": self.status,
+            "story_point": self.story_point,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
 
 
 # ================= ORGANIZATION =================
@@ -240,5 +249,4 @@ class Invite_Tokens(Base, TimestampMixin):
     user_id = Column(Integer, ForeignKey(User.id), nullable=False)
     token_hash = Column(String, nullable=False)
     expires_at = Column(DateTime, nullable=False)
-    used = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
