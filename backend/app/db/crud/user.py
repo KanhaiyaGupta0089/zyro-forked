@@ -30,7 +30,7 @@ async def create_user_password(
         name = name.capitalize(),
         email = email,
         password = hashed_password,
-        role = Role.EMPLOYEE,
+        role = Role.ADMIN,
         status = UserStatus.ACTIVE
     )
     session.add(user)
