@@ -12,12 +12,13 @@ from app.db.crud.dashboard_crud import (
     get_recent_issues_dashboard_data
 )
 from sqlalchemy import select, func, or_, distinct
+from app.core.dependencies import allow_min_role
 
 dashboard_router = APIRouter()
 
 @dashboard_router.get("/manager")
 async def get_manager_dashboard(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(allow_min_role(Role.MANAGER)),
     session: AsyncSession = Depends(get_db)
 ):
     """
@@ -28,8 +29,7 @@ async def get_manager_dashboard(
     if not user:
         raise NotFoundError(message="User not found")
 
-    if user.role != Role.MANAGER:
-        raise PermissionDeniedError(message="User role is not manager. Only managers can access this dashboard.")
+    
     
     cards_data = {
         "my_projects": 0,

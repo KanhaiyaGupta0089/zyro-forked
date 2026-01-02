@@ -1,12 +1,13 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import OperationalError, DisconnectionError
 from typing import Optional
 from app.db.connection import get_db
 from app.db.crud.user import get_user_by_id
 from app.core.security import decode_token
 from app.models.model import User
-from app.common.errors import CredentialError,PermissionDeniedError
+from app.common.errors import CredentialError,PermissionDeniedError,DatabaseErrors
 from app.core.enums import Role
 from typing import List
 
@@ -46,9 +47,30 @@ async def get_current_user(
     except CredentialError:
         # Re-raise CredentialError as-is (will return 401)
         raise
+    except (OperationalError, DisconnectionError) as e:
+        # Handle database connection errors (including TooManyConnectionsError)
+        error_msg = str(e).lower()
+        if "too many connections" in error_msg or "connection slots" in error_msg:
+            raise DatabaseErrors(
+                message="Database connection limit reached. Please try again in a moment."
+            )
+        raise DatabaseErrors(message=f"Database connection error: {str(e)}")
     except ValueError as e:
         raise CredentialError(message=f"Invalid token: {str(e)}")
+    except DatabaseErrors as e:
+        raise DatabaseErrors(message=f"Database error: {str(e)}")
     except Exception as e:
+        # Log the actual error for debugging
+        error_type = type(e).__name__
+        error_msg = str(e)
+        print(f"Unexpected error in get_current_user: {error_type}: {error_msg}")
+        
+        # Check if it's a connection-related error
+        if "too many connections" in error_msg.lower() or "connection slots" in error_msg.lower():
+            raise DatabaseErrors(
+                message="Database connection limit reached. Please try again in a moment."
+            )
+        
         raise CredentialError(message="Invalid authentication credentials")
 # ----------------------------------------------------------------------------------------------
 # ROLE CHECKER

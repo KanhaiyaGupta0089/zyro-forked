@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.core.conf import APP_NAME, APP_VERSION, DEBUG, API_V1_PREFIX
 from app.api.v1 import api_router
 from app.common.exception_handler import (
@@ -9,11 +10,24 @@ from app.common.exception_handler import (
     validation_exception_handler
 )
 from app.common.errors import UserErrors, ClientErrors, DatabaseErrors
+from app.db.connection import engine
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for FastAPI app.
+    Handles startup and shutdown events to properly manage database connections.
+    """
+    # Startup
+    yield
+    # Shutdown - properly dispose of database engine connections
+    await engine.dispose()
 
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,
-    debug=DEBUG
+    debug=DEBUG,
+    lifespan=lifespan
 )
 
 # Configure CORS
@@ -56,5 +70,24 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    """Health check endpoint"""
+    try:
+        # Check database connection pool status
+        pool = engine.pool
+        pool_status = {
+            "size": pool.size(),
+            "checked_in": pool.checkedin(),
+            "checked_out": pool.checkedout(),
+            "overflow": pool.overflow(),
+            "invalid": pool.invalid(),
+        }
+        return {
+            "status": "healthy",
+            "database_pool": pool_status
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
 
