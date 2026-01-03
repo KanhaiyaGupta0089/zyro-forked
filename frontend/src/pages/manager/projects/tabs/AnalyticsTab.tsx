@@ -1,307 +1,275 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
-  BarChart3, 
-  CheckCircle, 
-  Clock, 
-  AlertCircle, 
+import {
+  BarChart3,
   Users,
-  Calendar as CalendarIcon,
   TrendingUp,
-  Activity
+  Activity,
 } from "lucide-react";
 import { projectApi } from "@/services/api/projectApi";
 import { issueApi } from "@/services/api/issueApi";
 
-const AnalyticsTab = () => {
-  const { id } = useParams();
-  const [project, setProject] = useState<any>(null);
-  const [issues, setIssues] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [analyticsData, setAnalyticsData] = useState<any>(null);
+/* ======================================================
+   TYPES
+====================================================== */
 
+interface AnalyticsSummary {
+  total: number;
+  completed: number;
+  inProgress: number;
+  open: number;
+  overdue: number;
+  completionRate: number;
+  avgIssuesPerMember: number;
+  riskLevel: "Low" | "Medium" | "High";
+  priority: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+}
+
+/* ======================================================
+   COMPONENT
+====================================================== */
+
+const AnalyticsTab = () => {
+  const { id } = useParams<{ id: string }>();
+
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
+
+  /* ===============================
+      FETCH & COMPUTE
+  =============================== */
   useEffect(() => {
-    const fetchData = async () => {
+    if (!id) return;
+
+    const load = async () => {
       try {
         setLoading(true);
-        const projectRes = await projectApi.getProjectById(Number(id));
-        setProject(projectRes);
-        
-        // Get issues for this project using the dedicated API endpoint
-        const projectIssues = await issueApi.getIssuesByProject(Number(id));
-        setIssues(projectIssues);
-        
-        // Calculate analytics data
-        const totalIssues = projectIssues.length;
-        const completedIssues = projectIssues.filter((issue: any) => 
-          issue.status?.toLowerCase() === 'completed' || 
-          issue.status?.toLowerCase() === 'closed'
+
+        const project = await projectApi.getProjectById(+id);
+        const issues = await issueApi.getByProject(+id);
+
+        const total = issues.length;
+
+        const completed = issues.filter((i: any) =>
+          ["completed", "closed"].includes(i.status?.toLowerCase())
         ).length;
-        const openIssues = projectIssues.filter((issue: any) => 
-          issue.status?.toLowerCase() === 'open' || 
-          issue.status?.toLowerCase() === 'todo'
+
+        const inProgress = issues.filter((i: any) =>
+          ["in progress", "in-progress"].includes(i.status?.toLowerCase())
         ).length;
-        const inProgressIssues = projectIssues.filter((issue: any) => 
-          issue.status?.toLowerCase() === 'in progress' || 
-          issue.status?.toLowerCase() === 'in-progress'
+
+        const open = issues.filter((i: any) =>
+          ["open", "todo"].includes(i.status?.toLowerCase())
         ).length;
-        const overdueIssues = projectIssues.filter((issue: any) => {
-          // Check if issue is overdue by comparing due date with current date
-          if (!issue.due_date) return false;
-          return new Date(issue.due_date) < new Date() && 
-                 issue.status?.toLowerCase() !== 'completed' && 
-                 issue.status?.toLowerCase() !== 'closed';
+
+        const overdue = issues.filter((i: any) => {
+          if (!i.due_date) return false;
+          return (
+            new Date(i.due_date) < new Date() &&
+            !["completed", "closed"].includes(i.status?.toLowerCase())
+          );
         }).length;
-        
-        const completionRate = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
-        
-        // Calculate additional metrics
-        const priorityBreakdown = {
-          high: projectIssues.filter((issue: any) => issue.priority?.toLowerCase() === 'high' || issue.priority?.toLowerCase() === 'critical').length,
-          medium: projectIssues.filter((issue: any) => issue.priority?.toLowerCase() === 'medium' || issue.priority?.toLowerCase() === 'moderate').length,
-          low: projectIssues.filter((issue: any) => issue.priority?.toLowerCase() === 'low').length,
+
+        const completionRate =
+          total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        const teamSize = project.teamMembers || 1;
+
+        const avgIssuesPerMember =
+          teamSize > 0 ? Math.round(total / teamSize) : 0;
+
+        const priority = {
+          high: issues.filter((i: any) =>
+            ["high", "critical"].includes(i.priority?.toLowerCase())
+          ).length,
+          medium: issues.filter((i: any) =>
+            ["medium"].includes(i.priority?.toLowerCase())
+          ).length,
+          low: issues.filter((i: any) =>
+            ["low"].includes(i.priority?.toLowerCase())
+          ).length,
         };
-        
-        setAnalyticsData({
-          totalIssues,
-          completedIssues,
-          openIssues,
-          inProgressIssues,
-          overdueIssues,
+
+        const riskLevel: AnalyticsSummary["riskLevel"] =
+          overdue > 0 || priority.high > 3
+            ? "High"
+            : inProgress > open
+            ? "Medium"
+            : "Low";
+
+        setSummary({
+          total,
+          completed,
+          inProgress,
+          open,
+          overdue,
           completionRate,
-          priorityBreakdown,
-          teamSize: projectRes.teamMembers || 1 // Using project's team members if available
+          avgIssuesPerMember,
+          riskLevel,
+          priority,
         });
-      } catch (error) {
-        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    load();
   }, [id]);
 
+  /* ===============================
+      LOADING
+  =============================== */
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-64 py-12">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full mb-4"
-        />
-        <p className="text-gray-600 text-center">Loading analytics...</p>
+      <div className="flex justify-center py-20 text-gray-500">
+        Loading analytics…
       </div>
     );
   }
 
-  if (!analyticsData) {
+  if (!summary) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-64 py-12">
-        <BarChart3 className="w-12 h-12 text-gray-400 mb-4" />
-        <p className="text-gray-500 text-center">No analytics data available</p>
+      <div className="flex flex-col items-center py-20 text-gray-500">
+        <BarChart3 className="w-10 h-10 mb-3" />
+        No analytics available
       </div>
     );
   }
 
+  /* ===============================
+      UI
+  =============================== */
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Analytics</h2>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-sky-100 text-sky-600">
-              <Activity className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Issues</p>
-              <p className="text-xl font-bold text-gray-800">{analyticsData.totalIssues}</p>
-            </div>
-          </div>
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-100 text-green-600">
-              <CheckCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Completed</p>
-              <p className="text-xl font-bold text-gray-800">{analyticsData.completedIssues}</p>
-            </div>
-          </div>
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-yellow-100 text-yellow-600">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">In Progress</p>
-              <p className="text-xl font-bold text-gray-800">{analyticsData.inProgressIssues}</p>
-            </div>
-          </div>
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-          className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-red-100 text-red-600">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Overdue</p>
-              <p className="text-xl font-bold text-gray-800">{analyticsData.overdueIssues}</p>
-            </div>
-          </div>
-        </motion.div>
+      {/* HEADER */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-800">
+          Project Analytics
+        </h2>
+        <p className="text-sm text-gray-500">
+          Performance, workload & delivery risk
+        </p>
       </div>
 
-      {/* Completion Rate */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.4 }}
-        className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Project Completion</h3>
-          <span className="text-2xl font-bold text-sky-600">{analyticsData.completionRate}%</span>
+      {/* CORE METRICS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Metric
+          icon={<Activity />}
+          label="Total Issues"
+          value={summary.total}
+        />
+        <Metric
+          icon={<Activity />}
+          label="Completed"
+          value={summary.completed}
+          color="green"
+        />
+        <Metric
+          icon={<Activity />}
+          label="In Progress"
+          value={summary.inProgress}
+          color="yellow"
+        />
+        <Metric
+          icon={<Activity />}
+          label="Overdue"
+          value={summary.overdue}
+          color="red"
+        />
+      </div>
+
+      {/* COMPLETION */}
+      <div className="bg-white border rounded-xl p-6 shadow-sm">
+        <div className="flex justify-between mb-3">
+          <h3 className="font-semibold">Completion Rate</h3>
+          <span className="font-bold text-indigo-600">
+            {summary.completionRate}%
+          </span>
         </div>
-        
-        <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
-          <motion.div 
+
+        <div className="w-full h-3 bg-gray-200 rounded-full">
+          <motion.div
             initial={{ width: 0 }}
-            animate={{ width: `${analyticsData.completionRate}%` }}
-            transition={{ duration: 1, ease: "easeOut" }}
-            className="h-4 bg-gradient-to-r from-sky-500 to-blue-500 rounded-full"
+            animate={{ width: `${summary.completionRate}%` }}
+            className="h-3 bg-indigo-600 rounded-full"
           />
         </div>
-        
-        <div className="flex justify-between text-sm text-gray-600">
-          <span>{analyticsData.completedIssues} completed</span>
-          <span>{analyticsData.totalIssues - analyticsData.completedIssues} remaining</span>
-        </div>
-      </motion.div>
-
-      {/* Additional Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.5 }}
-          className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Team Performance</h3>
-          
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Team Size</span>
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-gray-500" />
-                <span className="font-medium">{analyticsData.teamSize}</span>
-              </div>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Avg. Resolution Time</span>
-              <span className="font-medium">5 days</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Issues per Member</span>
-              <span className="font-medium">
-                {analyticsData.teamSize > 0 ? Math.round(analyticsData.totalIssues / analyticsData.teamSize) : 0}
-              </span>
-            </div>
-          </div>
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.6 }}
-          className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Issue Distribution</h3>
-          
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">High Priority</span>
-              <span className="font-medium">{analyticsData.priorityBreakdown?.high || 0}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Medium Priority</span>
-              <span className="font-medium">{analyticsData.priorityBreakdown?.medium || 0}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Low Priority</span>
-              <span className="font-medium">{analyticsData.priorityBreakdown?.low || 0}</span>
-            </div>
-          </div>
-        </motion.div>
       </div>
 
-      {/* Recent Activity */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.7 }}
-        className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
-      >
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
-        
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-800">Project completion rate increased to 75%</p>
-              <p className="text-xs text-gray-500">2 hours ago</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-800">New issue created in project</p>
-              <p className="text-xs text-gray-500">Yesterday</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-800">Milestone completed: Development Phase</p>
-              <p className="text-xs text-gray-500">2 days ago</p>
-            </div>
-          </div>
+      {/* MANAGEMENT INSIGHTS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Insight title="Team Load">
+          <Users className="w-4 h-4" />
+          <span>
+            Avg. {summary.avgIssuesPerMember} issues per member
+          </span>
+        </Insight>
+
+        <Insight title="Delivery Risk">
+          <TrendingUp className="w-4 h-4" />
+          <span
+            className={`font-semibold ${
+              summary.riskLevel === "High"
+                ? "text-red-600"
+                : summary.riskLevel === "Medium"
+                ? "text-yellow-600"
+                : "text-green-600"
+            }`}
+          >
+            {summary.riskLevel}
+          </span>
+        </Insight>
+      </div>
+
+      {/* PRIORITY BREAKDOWN */}
+      <div className="bg-white border rounded-xl p-6 shadow-sm">
+        <h3 className="font-semibold mb-4">Priority Breakdown</h3>
+
+        <div className="space-y-2 text-sm">
+          <Row label="High / Critical" value={summary.priority.high} />
+          <Row label="Medium" value={summary.priority.medium} />
+          <Row label="Low" value={summary.priority.low} />
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };
 
 export default AnalyticsTab;
+
+/* ======================================================
+   SMALL UI PARTS
+====================================================== */
+
+const Metric = ({ icon, label, value, color = "indigo" }: any) => (
+  <div className="bg-white border rounded-xl p-4 shadow-sm">
+    <div className="flex items-center gap-3">
+      <div className={`p-2 rounded bg-${color}-100 text-${color}-600`}>
+        {icon}
+      </div>
+      <div>
+        <p className="text-sm text-gray-500">{label}</p>
+        <p className="text-xl font-bold">{value}</p>
+      </div>
+    </div>
+  </div>
+);
+
+const Insight = ({ title, children }: any) => (
+  <div className="bg-white border rounded-xl p-4 shadow-sm">
+    <p className="text-xs text-gray-500 mb-2">{title}</p>
+    <div className="flex items-center gap-2">{children}</div>
+  </div>
+);
+
+const Row = ({ label, value }: any) => (
+  <div className="flex justify-between">
+    <span className="text-gray-600">{label}</span>
+    <span className="font-medium">{value}</span>
+  </div>
+);

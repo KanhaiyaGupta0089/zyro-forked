@@ -33,7 +33,7 @@ const getProgressColor = (progress: number): string => {
   if (progress > 75) return "bg-blue-500";
   if (progress > 50) return "bg-sky-500";
   if (progress > 25) return "bg-amber-500";
-  return "bg-gray-400";
+  return "bg-red-500";
 };
 
 /* ======================================================
@@ -110,7 +110,7 @@ const ProjectItem = ({ project, onClick }: ProjectItemProps) => (
           )} */}
 
           <span className="text-xs text-gray-500">
-            {project.task_completed}/{project.total_task} tasks
+            {project.task_completed || 0}/{project.total_task || 0} issues
           </span>
         </div>
 
@@ -119,16 +119,20 @@ const ProjectItem = ({ project, onClick }: ProjectItemProps) => (
           <div className="flex items-center gap-2">
             <div className="flex-1 bg-gray-200 rounded-full h-1.5 overflow-hidden">
               <motion.div
+                role="progressbar"
+                aria-valuenow={project.total_task && project.total_task > 0 ? Math.round((project.task_completed || 0) / project.total_task * 100) : 0}
+                aria-valuemin={0}
+                aria-valuemax={100}
                 initial={{ width: 0 }}
-                animate={{ width: `${project.progress}%` }}
+                animate={{ width: `${project.total_task && project.total_task > 0 ? Math.round((project.task_completed || 0) / project.total_task * 100) : 0}%` }}
                 transition={{ duration: 0.5, ease: "easeOut" }}
                 className={`h-1.5 rounded-full ${getProgressColor(
-                  project.progress
+                  project.total_task && project.total_task > 0 ? Math.round((project.task_completed || 0) / project.total_task * 100) : 0
                 )}`}
               />
             </div>
             <span className="text-xs text-gray-600 min-w-[32px] text-right">
-              {project.progress}%
+              {project.total_task && project.total_task > 0 ? Math.round((project.task_completed || 0) / project.total_task * 100) : 0}%
             </span>
           </div>
         </div>

@@ -36,7 +36,7 @@ const Issues = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 1, // Reduced from 8 to 1 for better pointer alignment
       },
     }),
     useSensor(KeyboardSensor)

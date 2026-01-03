@@ -1,156 +1,171 @@
-import axios from 'axios';
-import { ApiResponse, Issue, CreateIssueRequest, UpdateIssueRequest, IssueStatus, IssuePriority, IssueType } from './types';
+import axios from "axios";
+import {
+  ApiResponse,
+  Issue,
+  CreateIssueRequest,
+  UpdateIssueRequest,
+  IssueStatus,
+  IssuePriority,
+  IssueType,
+  IssueFilters,
+} from "./types";
 
-// Export types for convenience
-export type { Issue, CreateIssueRequest, UpdateIssueRequest, IssueStatus, IssuePriority, IssueType };
+/* ======================================================
+   🔹 AXIOS INSTANCE
+====================================================== */
 
-// Create axios instance
 const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1",
   withCredentials: true,
 });
 
 /* ======================================================
-   🔹 Request Interceptor (Auth)
+   🔹 REQUEST INTERCEPTOR (AUTH)
 ====================================================== */
-apiClient.interceptors.request.use(
-  (config) => {
-    // Get token from the auth state stored in localStorage
-    const authStateStr = localStorage.getItem('authState');
-    let token = null;
-    
-    if (authStateStr) {
-      try {
-        const authState = JSON.parse(authStateStr);
-        token = authState.token;
-      } catch (e) {
-        console.error('Error parsing auth state:', e);
-      }
+
+apiClient.interceptors.request.use((config) => {
+  let token: string | null = null;
+
+  try {
+    const authState = localStorage.getItem("authState");
+    if (authState) {
+      token = JSON.parse(authState)?.token;
     }
-    
-    // Fallback to direct access_token if authState doesn't contain token
-    if (!token) {
-      token = localStorage.getItem('access_token');
-    }
-    
-    if (token) {
-      if (!config.headers) {
-        config.headers = {};
-      }
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    
-    // Set the base API URL dynamically
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
-    config.baseURL = API_BASE_URL;
-    
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+  } catch {
+    token = null;
+  }
+
+  if (!token) {
+    token = localStorage.getItem("access_token");
+  }
+
+  if (token) {
+    config.headers = {
+      ...config.headers,
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
+  return config;
+});
 
 /* ======================================================
-   🔹 Response Interceptor (Auth Expiry)
+   🔹 RESPONSE INTERCEPTOR (TOKEN EXPIRY)
 ====================================================== */
+
 apiClient.interceptors.response.use(
-  (response) => response,
+  (res) => res,
   (error) => {
     if (error.response?.status === 401) {
-      // Token might be expired, clear auth state
-      localStorage.removeItem('authState');
-      localStorage.removeItem('access_token');
-      // Redirect to login page
-      window.location.href = '/login';
+      localStorage.removeItem("authState");
+      localStorage.removeItem("access_token");
+      window.location.href = "/login";
     }
     return Promise.reject(error);
   }
 );
 
-// Issue API functions
+/* ======================================================
+   🔹 ISSUE API — CORE ONLY
+====================================================== */
+
 export const issueApi = {
-  // GET all issues
-  getIssues: async (): Promise<Issue[]> => {
-    try {
-      const response = await apiClient.get<ApiResponse<Issue[]>>('/issue');
-      return response.data.data || [];
-    } catch (error) {
-      console.error('Error fetching issues:', error);
-      throw error;
-    }
+  /* ===============================
+     🔹 CORE CRUD
+  =============================== */
+
+  getAll: async (): Promise<Issue[]> => {
+    const res = await apiClient.get<ApiResponse<Issue[]>>("/issue");
+    return res.data.data ?? [];
   },
 
-  // GET issue by ID
-  getIssueById: async (id: number): Promise<Issue> => {
-    try {
-      const response = await apiClient.get<ApiResponse<Issue>>(`/issue/${id}`);
-      return response.data.data;
-    } catch (error) {
-      console.error(`Error fetching issue with id ${id}:`, error);
-      throw error;
-    }
+  getById: async (id: number): Promise<Issue> => {
+    const res = await apiClient.get<ApiResponse<Issue>>(`/issue/${id}`);
+    return res.data.data;
   },
 
-  // POST create issue
-  createIssue: async (issueData: CreateIssueRequest): Promise<Issue> => {
-    try {
-      const response = await apiClient.post<ApiResponse<Issue>>('/issue', issueData);
-      return response.data.data;
-    } catch (error) {
-      console.error('Error creating issue:', error);
-      throw error;
-    }
+  create: async (payload: CreateIssueRequest): Promise<Issue> => {
+    const res = await apiClient.post<ApiResponse<Issue>>("/issue", payload);
+    return res.data.data;
   },
 
-  // PUT update issue
-  updateIssue: async (id: number, issueData: UpdateIssueRequest): Promise<Issue> => {
-    try {
-      const response = await apiClient.put<ApiResponse<Issue>>(`/issue/${id}`, issueData);
-      return response.data.data;
-    } catch (error) {
-      console.error(`Error updating issue with id ${id}:`, error);
-      throw error;
-    }
+  update: async (
+    id: number,
+    payload: UpdateIssueRequest
+  ): Promise<Issue> => {
+    const res = await apiClient.put<ApiResponse<Issue>>(
+      `/issue/${id}`,
+      payload
+    );
+    return res.data.data;
   },
 
-  // DELETE issue
-  deleteIssue: async (id: number): Promise<void> => {
-    try {
-      await apiClient.delete<ApiResponse<null>>(`/issue/${id}`);
-    } catch (error) {
-      console.error(`Error deleting issue with id ${id}:`, error);
-      throw error;
-    }
+  remove: async (id: number): Promise<void> => {
+    await apiClient.delete(`/issue/${id}`);
   },
 
-  // GET issues by status
-  getIssuesByStatus: async (status: IssueStatus): Promise<Issue[]> => {
-    try {
-      const response = await apiClient.get<ApiResponse<Issue[]>>(`/issue?status=${status}`);
-      return response.data.data || [];
-    } catch (error) {
-      console.error(`Error fetching issues with status ${status}:`, error);
-      throw error;
-    }
+  /* ===============================
+     🔹 PROJECT-SCOPED QUERIES
+  =============================== */
+
+  getByProject: async (projectId: number): Promise<Issue[]> => {
+    const res = await apiClient.get<ApiResponse<Issue[]>>(
+      `/issue?project_id=${projectId}`
+    );
+    return res.data.data ?? [];
   },
 
-  // GET issues by priority
-  getIssuesByPriority: async (priority: IssuePriority): Promise<Issue[]> => {
-    try {
-      const response = await apiClient.get<ApiResponse<Issue[]>>(`/issue?priority=${priority}`);
-      return response.data.data || [];
-    } catch (error) {
-      console.error(`Error fetching issues with priority ${priority}:`, error);
-      throw error;
-    }
+  getByProjectAndStatus: async (
+    projectId: number,
+    status: IssueStatus
+  ): Promise<Issue[]> => {
+    const res = await apiClient.get<ApiResponse<Issue[]>>(
+      `/issue?project_id=${projectId}&status=${status}`
+    );
+    return res.data.data ?? [];
   },
 
-  // GET issues by project
-  getIssuesByProject: async (projectId: number): Promise<Issue[]> => {
-    try {
-      const response = await apiClient.get<ApiResponse<Issue[]>>(`/issue?project_id=${projectId}`);
-      return response.data.data || [];
-    } catch (error) {
-      console.error(`Error fetching issues for project ${projectId}:`, error);
-      throw error;
-    }
+  /* ===============================
+     🔹 FILTERED SEARCH
+  =============================== */
+
+  getWithFilters: async (
+    projectId: number,
+    filters: IssueFilters
+  ): Promise<Issue[]> => {
+    const params = new URLSearchParams();
+    params.append("project_id", projectId.toString());
+
+    if (filters.search) params.append("search", filters.search);
+    if (filters.status && filters.status !== "all")
+      params.append("status", filters.status);
+    if (filters.priority && filters.priority !== "all")
+      params.append("priority", filters.priority);
+    if (filters.assignee_id)
+      params.append(
+        "assignee_id",
+        filters.assignee_id === "me"
+          ? "me"
+          : filters.assignee_id.toString()
+      );
+
+    const res = await apiClient.get<ApiResponse<Issue[]>>(
+      `/issue?${params.toString()}`
+    );
+
+    return res.data.data ?? [];
   },
+};
+
+/* ======================================================
+   🔹 EXPORT TYPES (CONVENIENCE)
+====================================================== */
+
+export type {
+  Issue,
+  IssueStatus,
+  IssuePriority,
+  IssueType,
+  CreateIssueRequest,
+  UpdateIssueRequest,
 };

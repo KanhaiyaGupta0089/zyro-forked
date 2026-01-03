@@ -132,7 +132,7 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   const [project, setProject] = useState<ProjectFormData>({
     name: "",
     description: "",
-    status: "inactive",
+    status: "active", // Default to active for new projects
     start_date: "",
     end_date: "",
     organization_id: 1,
@@ -313,6 +313,7 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
             value={project.status}
             onChange={handleInputChange}
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            disabled={true} // Status field is disabled during project creation
           >
             <option value="inactive">Inactive</option>
             <option value="active">Active</option>
@@ -320,6 +321,9 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
             <option value="delayed">Delayed</option>
             <option value="completed">Completed</option>
           </select>
+          <p className="mt-1 text-xs text-gray-500">
+            Status defaults to 'Active' and can be changed later in settings
+          </p>
         </div>
 
         <div>

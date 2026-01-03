@@ -31,7 +31,7 @@ export const IssueBoard = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="overflow-x-auto pb-4"
+      className="overflow-x-auto pb-4 ml-2"
     >
       <DndContext
         sensors={sensors}
@@ -58,7 +58,7 @@ export const IssueBoard = ({
               const typeColor = types[activeIssue.type as keyof typeof types]?.color || "#6B778C";
 
               return (
-                <div className="bg-white border-2 border-[#0052CC] rounded p-2.5 w-72 shadow-xl">
+                <div className="bg-white border border-[#0052CC] rounded p-2.5 w-72 shadow-xl cursor-grabbing" style={{ transform: 'rotateZ(0deg)' }}>
                   <div className="flex items-center gap-1.5 mb-2">
                     <GripVertical className="w-3.5 h-3.5 text-[#0052CC]" />
                     <TypeIcon
