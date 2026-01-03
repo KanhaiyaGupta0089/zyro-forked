@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Shield, Lock, Key } from "lucide-react";
+import { Mail} from "lucide-react";
 import { toast } from "react-hot-toast";
 
 const Forgot: React.FC = () => {
