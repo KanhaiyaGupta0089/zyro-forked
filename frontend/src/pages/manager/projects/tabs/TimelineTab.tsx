@@ -1,201 +1,244 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
-  Calendar as CalendarIcon, 
-  CheckCircle, 
-  AlertCircle, 
+import {
+  Calendar,
   Clock,
   Plus,
-  MoreVertical
+  MoreVertical,
 } from "lucide-react";
 import { projectApi } from "@/services/api/projectApi";
 
+/* ======================================================
+   TYPES
+====================================================== */
+
+type MilestoneStatus = "completed" | "in_progress" | "upcoming" | "overdue";
+
+interface Milestone {
+  id: number;
+  name: string;
+  date: string;
+  description?: string;
+  status: MilestoneStatus;
+}
+
+/* ======================================================
+   HELPERS
+====================================================== */
+
+const daysBetween = (a: Date, b: Date) =>
+  Math.ceil((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
+
+const formatDate = (d?: string) =>
+  d ? new Date(d).toLocaleDateString() : "—";
+
+/* ======================================================
+   COMPONENT
+====================================================== */
+
 const TimelineTab = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+
   const [project, setProject] = useState<any>(null);
-  const [milestones, setMilestones] = useState<any[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /* ===============================
+      FETCH
+  =============================== */
   useEffect(() => {
-    const fetchData = async () => {
+    if (!id) return;
+
+    const load = async () => {
       try {
         setLoading(true);
-        const projectRes = await projectApi.getProjectById(Number(id));
-        setProject(projectRes);
-        
-        // In the future, fetch real milestones from an API endpoint like:
-        // const milestonesRes = await projectApi.getProjectMilestones(Number(id));
-        // For now, we'll create milestones based on project dates
-        const projectMilestones = [
-          { 
-            id: 1, 
-            name: "Project Start", 
-            date: projectRes.start_date, 
-            status: new Date(projectRes.start_date) <= new Date() ? "completed" : "upcoming", 
-            description: "Project officially started" 
+        const p = await projectApi.getProjectById(+id);
+        setProject(p);
+
+        const start = new Date(p.start_date);
+        const end = new Date(p.end_date);
+        const today = new Date();
+
+        const midpoint = new Date(
+          start.getTime() + (end.getTime() - start.getTime()) / 2
+        );
+
+        const autoMilestones: Milestone[] = [
+          {
+            id: 1,
+            name: "Project Start",
+            date: p.start_date,
+            description: "Work officially started",
+            status: today >= start ? "completed" : "upcoming",
           },
-          { 
-            id: 2, 
-            name: "Midpoint", 
-            date: new Date(
-              new Date(projectRes.start_date).getTime() + 
-              (new Date(projectRes.end_date).getTime() - new Date(projectRes.start_date).getTime()) / 2
-            ).toISOString().split('T')[0],
-            status: new Date() > new Date(
-              new Date(projectRes.start_date).getTime() + 
-              (new Date(projectRes.end_date).getTime() - new Date(projectRes.start_date).getTime()) / 2
-            ) ? "completed" : "upcoming", 
-            description: "Project midpoint reached" 
+          {
+            id: 2,
+            name: "Midpoint Review",
+            date: midpoint.toISOString(),
+            description: "Delivery health checkpoint",
+            status:
+              today > midpoint
+                ? today > end
+                  ? "completed"
+                  : "in_progress"
+                : "upcoming",
           },
-          { 
-            id: 3, 
-            name: "Project End", 
-            date: projectRes.end_date, 
-            status: new Date(projectRes.end_date) < new Date() ? "completed" : "upcoming", 
-            description: "Project completion" 
+          {
+            id: 3,
+            name: "Project Deadline",
+            date: p.end_date,
+            description: "Final delivery date",
+            status:
+              today > end
+                ? "overdue"
+                : today >= end
+                ? "completed"
+                : "upcoming",
           },
         ];
-        
-        setMilestones(projectMilestones);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+
+        setMilestones(autoMilestones);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    load();
   }, [id]);
 
+  /* ===============================
+      DERIVED METRICS
+  =============================== */
+  const timelineStats = useMemo(() => {
+    if (!project) return null;
+
+    const start = new Date(project.start_date);
+    const end = new Date(project.end_date);
+    const today = new Date();
+
+    const total = daysBetween(start, end);
+    const elapsed = Math.max(0, daysBetween(start, today));
+    const remaining = Math.max(0, daysBetween(today, end));
+
+    const progress = Math.min(100, Math.round((elapsed / total) * 100));
+
+    const health =
+      today > end
+        ? "Delayed"
+        : progress > 80
+        ? "On Track"
+        : progress > 50
+        ? "Attention"
+        : "Early Stage";
+
+    return { progress, remaining, health };
+  }, [project]);
+
+  /* ===============================
+      LOADING
+  =============================== */
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-64 py-12">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full mb-4"
-        />
-        <p className="text-gray-600 text-center">Loading timeline...</p>
+      <div className="flex flex-col items-center justify-center py-20">
+        <Clock className="w-10 h-10 animate-spin text-indigo-600" />
+        <p className="mt-3 text-gray-500">Loading timeline…</p>
       </div>
     );
   }
 
+  /* ===============================
+      UI
+  =============================== */
   return (
     <div className="space-y-6">
+      {/* HEADER */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Timeline</h2>
-        <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg hover:from-sky-700 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg">
-          <Plus size={18} />
-          <span>Add Milestone</span>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">
+            Project Timeline
+          </h2>
+          <p className="text-sm text-gray-500">
+            Track delivery progress & risks
+          </p>
+        </div>
+
+        <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+          <Plus className="w-4 h-4" />
+          Add Milestone
         </button>
       </div>
 
-      {/* Project Dates */}
+      {/* SUMMARY */}
+      {timelineStats && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Stat
+            label="Progress"
+            value={`${timelineStats.progress}%`}
+            color="indigo"
+          />
+          <Stat
+            label="Days Remaining"
+            value={`${timelineStats.remaining}`}
+            color="blue"
+          />
+          <Stat
+            label="Health"
+            value={timelineStats.health}
+            color={
+              timelineStats.health === "Delayed"
+                ? "red"
+                : timelineStats.health === "Attention"
+                ? "yellow"
+                : "green"
+            }
+          />
+        </div>
+      )}
+
+      {/* DATE RANGE */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
-              <CalendarIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Start Date</p>
-              <p className="text-xl font-bold text-gray-800">
-                {project?.start_date ? new Date(project.start_date).toLocaleDateString() : 'N/A'}
-              </p>
-            </div>
-          </div>
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-red-100 text-red-600">
-              <CalendarIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">End Date</p>
-              <p className="text-xl font-bold text-gray-800">
-                {project?.end_date ? new Date(project.end_date).toLocaleDateString() : 'N/A'}
-              </p>
-            </div>
-          </div>
-        </motion.div>
+        <DateCard label="Start Date" value={formatDate(project.start_date)} />
+        <DateCard label="End Date" value={formatDate(project.end_date)} />
       </div>
 
-      {/* Milestones Timeline */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold text-gray-800">Project Milestones</h3>
-        
-        <div className="relative">
-          {/* Vertical timeline line */}
-          <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200 transform -translate-x-1/2"></div>
-          
-          <div className="space-y-6">
-            {milestones.map((milestone, index) => (
-              <motion.div
-                key={milestone.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="relative pl-12"
-              >
-                {/* Timeline dot */}
-                <div className={`absolute left-0 top-2 w-8 h-8 rounded-full flex items-center justify-center ${
-                  milestone.status === 'completed' ? 'bg-green-500 text-white' :
-                  milestone.status === 'in-progress' ? 'bg-blue-500 text-white animate-pulse' :
-                  'bg-gray-300 text-gray-600'
-                }`}>
-                  {milestone.status === 'completed' ? <CheckCircle className="w-4 h-4" /> :
-                   milestone.status === 'in-progress' ? <Clock className="w-4 h-4" /> :
-                   <Clock className="w-4 h-4" />}
-                </div>
-                
-                <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-800">{milestone.name}</h4>
-                      <p className="text-sm text-gray-600 mb-2">{milestone.description}</p>
-                      <div className="flex items-center gap-2">
-                        <CalendarIcon className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">
-                          {new Date(milestone.date).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                        milestone.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        milestone.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {milestone.status === 'completed' ? <CheckCircle className="w-3 h-3" /> :
-                         milestone.status === 'in-progress' ? <Clock className="w-3 h-3" /> :
-                         <Clock className="w-3 h-3" />}
-                        {milestone.status === 'completed' ? 'Completed' :
-                         milestone.status === 'in-progress' ? 'In Progress' :
-                         'Upcoming'}
-                      </span>
-                      
-                      <button className="p-1 rounded hover:bg-gray-100">
-                        <MoreVertical className="w-4 h-4 text-gray-500" />
-                      </button>
+      {/* MILESTONES */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Milestones</h3>
+
+        <div className="relative pl-6 space-y-6">
+          <div className="absolute left-2 top-0 bottom-0 w-px bg-gray-200" />
+
+          {milestones.map((m) => (
+            <motion.div
+              key={m.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="relative"
+            >
+              <StatusDot status={m.status} />
+
+              <div className="ml-6 bg-white border rounded-xl p-4 shadow-sm">
+                <div className="flex justify-between gap-4">
+                  <div>
+                    <h4 className="font-semibold">{m.name}</h4>
+                    <p className="text-sm text-gray-500">
+                      {m.description}
+                    </p>
+                    <div className="flex items-center gap-2 text-sm mt-1">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      {formatDate(m.date)}
                     </div>
                   </div>
+
+                  <div className="flex items-start gap-2">
+                    <StatusBadge status={m.status} />
+                    <MoreVertical className="w-4 h-4 text-gray-400" />
+                  </div>
                 </div>
-              </motion.div>
-            ))}
-          </div>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </div>
     </div>
@@ -203,3 +246,53 @@ const TimelineTab = () => {
 };
 
 export default TimelineTab;
+
+/* ======================================================
+   SMALL UI PARTS
+====================================================== */
+
+const Stat = ({ label, value, color }: any) => (
+  <div className="bg-white border rounded-xl p-4 shadow-sm">
+    <p className="text-xs text-gray-500">{label}</p>
+    <p className={`text-xl font-bold text-${color}-600`}>{value}</p>
+  </div>
+);
+
+const DateCard = ({ label, value }: any) => (
+  <div className="bg-white border rounded-xl p-4 shadow-sm">
+    <p className="text-xs text-gray-500">{label}</p>
+    <p className="text-lg font-semibold">{value}</p>
+  </div>
+);
+
+const StatusDot = ({ status }: { status: MilestoneStatus }) => {
+  const color =
+    status === "completed"
+      ? "bg-green-500"
+      : status === "in_progress"
+      ? "bg-blue-500 animate-pulse"
+      : status === "overdue"
+      ? "bg-red-500"
+      : "bg-gray-300";
+
+  return (
+    <div
+      className={`absolute -left-1.5 top-4 w-3 h-3 rounded-full ${color}`}
+    />
+  );
+};
+
+const StatusBadge = ({ status }: { status: MilestoneStatus }) => {
+  const map: Record<MilestoneStatus, string> = {
+    completed: "bg-green-100 text-green-700",
+    in_progress: "bg-blue-100 text-blue-700",
+    upcoming: "bg-gray-100 text-gray-700",
+    overdue: "bg-red-100 text-red-700",
+  };
+
+  return (
+    <span className={`px-2 py-1 text-xs rounded-full ${map[status]}`}>
+      {status.replace("_", " ").toUpperCase()}
+    </span>
+  );
+};

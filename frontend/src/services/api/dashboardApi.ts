@@ -6,6 +6,8 @@ import {
   DashboardStats,
   RecentProject,
   RecentIssue,
+  IssuePriority,
+  IssueStatus,
 } from "./types";
 
 /* ======================================================
@@ -147,13 +149,38 @@ const recent_projects: RecentProject[] =
     /* -------------------------------
        🔹 Recent Issues Mapping
     -------------------------------- */
+    const mapPriority = (priority: string): IssuePriority => {
+      // Map backend priority string to frontend IssuePriority type
+      const priorityMap: Record<string, IssuePriority> = {
+        'low': 'low',
+        'moderate': 'moderate',
+        'high': 'high',
+        'critical': 'critical',
+      };
+      return priorityMap[priority.toLowerCase()] || 'moderate'; // default to moderate if unknown
+    };
+
+    const mapStatus = (status: string): IssueStatus => {
+      // Map backend status string to frontend IssueStatus type
+      const statusMap: Record<string, IssueStatus> = {
+        'todo': 'todo',
+        'in_progress': 'in_progress',
+        'completed': 'completed',
+        'cancelled': 'cancelled',
+        'hold': 'hold',
+        'qa': 'qa',
+        'blocked': 'blocked',
+      };
+      return statusMap[status.toLowerCase()] || 'todo'; // default to todo if unknown
+    };
+
     const recent_issues: RecentIssue[] =
       backend.recent_issues.map((issue) => ({
         id: issue.task_id,
         title: issue.task_name,
         project: issue.project_name,
-        status: issue.status,
-        priority: issue.priority,
+        status: mapStatus(issue.status),
+        priority: mapPriority(issue.priority),
         assignee: issue.assigned_to,
         created: `${issue.hours_ago}h ago`,
       }));

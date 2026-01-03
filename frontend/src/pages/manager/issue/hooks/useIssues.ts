@@ -101,18 +101,72 @@ const transformIssueToUI = (apiIssue: ApiIssue, project?: any): UIIssue => {
   };
 };
 
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Define the cache type
+interface CacheData {
+  issues: UIIssue[];
+  projects: Project[];
+  timestamp: number;
+}
+
+// Simple cache to prevent redundant API calls
+let cachedData: CacheData | null = null;
+
+// Local storage cache functions
+const CACHE_KEY = 'issues_cache';
+
+const getCacheFromStorage = (): CacheData | null => {
+  try {
+    const stored = localStorage.getItem(CACHE_KEY);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    
+    // Check if cache is still valid
+    if (Date.now() - parsed.timestamp < CACHE_DURATION) {
+      return parsed;
+    } else {
+      // Remove expired cache
+      localStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error reading cache from localStorage:', error);
+    return null;
+  }
+};
+
+const setCacheToStorage = (data: CacheData) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error('Error saving cache to localStorage:', error);
+  }
+};
+
 export const useIssues = () => {
-  const [issues, setIssues] = useState<UIIssue[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize with cached data from local storage
+  const initialCachedData = cachedData || getCacheFromStorage();
+  
+  const [issues, setIssues] = useState<UIIssue[]>(initialCachedData ? initialCachedData.issues : []);
+  const [projects, setProjects] = useState<Project[]>(initialCachedData ? initialCachedData.projects : []);
+  const [isLoading, setIsLoading] = useState(initialCachedData ? false : true);
 
   const loadData = useCallback(async () => {
+    // Check if we have valid cached data
+    const currentCachedData = cachedData || getCacheFromStorage();
+    if (currentCachedData && Date.now() - currentCachedData.timestamp < CACHE_DURATION) {
+      setIssues(currentCachedData.issues);
+      setProjects(currentCachedData.projects);
+      return;
+    }
+    
     try {
       setIsLoading(true);
 
       // Load issues and projects in parallel
       const [issuesResponse, projectsResponse] = await Promise.allSettled([
-        issueApi.getIssues(),
+        issueApi.getAll(),
         projectService.getProjects()
       ]);
 
@@ -181,7 +235,7 @@ export const useIssues = () => {
       setIssues(updatedIssues);
 
       try {
-        await issueApi.updateIssue(issue.apiId, { status: newStatus });
+        await issueApi.update(issue.apiId, { status: newStatus });
         toast.success("Issue status updated successfully");
         return true;
       } catch (error) {
@@ -197,7 +251,7 @@ export const useIssues = () => {
   const deleteIssue = useCallback(
     async (apiId: number) => {
       try {
-        await issueApi.deleteIssue(apiId);
+        await issueApi.remove(apiId);
         toast.success("Issue deleted successfully");
         // Refresh data to get the latest state from the backend
         await loadData();

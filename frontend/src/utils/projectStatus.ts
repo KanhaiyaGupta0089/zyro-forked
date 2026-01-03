@@ -6,26 +6,26 @@ export const getStatusColor = (status?: string) => {
 
   switch(status.toLowerCase()) {
     case "active":
-      return "bg-blue-100 text-blue-800";
+      return "bg-gray-200 text-gray-800";
     case "inactive":
       return "bg-gray-100 text-gray-800";
     case "upcoming":
-      return "bg-purple-100 text-purple-800";
+      return "bg-gray-200 text-gray-800";
     case "delayed":
-      return "bg-red-100 text-red-800";
+      return "bg-gray-800 text-white";
     case "completed":
-      return "bg-green-100 text-green-800";
+      return "bg-black text-white";
     // Additional statuses that may be used in the UI
     case "in progress":
-      return "bg-green-100 text-green-800";
+      return "bg-gray-200 text-gray-800";
     case "draft":
-      return "bg-purple-100 text-purple-800";
+      return "bg-gray-100 text-gray-800";
     case "archived":
       return "bg-gray-100 text-gray-800";
     case "pending":
-      return "bg-yellow-100 text-yellow-800";
+      return "bg-gray-200 text-gray-800";
     case "on hold":
-      return "bg-red-100 text-red-800";
+      return "bg-gray-800 text-white";
     default:
       return "bg-gray-100 text-gray-800";
   }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { motion } from "framer-motion";
-import { X, Save, Paperclip, Trash2 } from "lucide-react";
+import { X, Save, Paperclip, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "react-hot-toast";
 import {
   issueApi,
@@ -50,6 +50,7 @@ export const IssueModal = ({
   const [users, setUsers] = useState<Array<{ id: number; name: string }>>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   useEffect(() => {
@@ -60,7 +61,7 @@ export const IssueModal = ({
       const assignedToId = typeof issue.assignee.id === 'string' 
         ? parseInt(issue.assignee.id, 10) 
         : (issue.assignee.id as number);
-        
+      
       setFormData({
         name: issue.title,
         description: "",
@@ -76,7 +77,7 @@ export const IssueModal = ({
       const defaultProjectId = projects[0]?.id 
         ? (typeof projects[0].id === 'string' ? parseInt(projects[0].id, 10) : projects[0].id)
         : 0;
-        
+      
       setFormData({
         name: "",
         description: "",
@@ -134,7 +135,7 @@ export const IssueModal = ({
           assigned_to: formData.assignedTo > 0 ? formData.assignedTo : null,
         };
 
-        await issueApi.updateIssue(issue.apiId, updateData);
+        await issueApi.update(issue.apiId, updateData);
         toast.success("Issue updated successfully");
       } else {
         // Create mode
@@ -150,7 +151,7 @@ export const IssueModal = ({
           assigned_to: formData.assignedTo > 0 ? formData.assignedTo : null,
         };
 
-        await issueApi.createIssue(createData);
+        await issueApi.create(createData);
         toast.success("Issue created successfully");
       }
 
@@ -175,7 +176,7 @@ export const IssueModal = ({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-[#DFE1E6] flex items-center justify-between">
@@ -190,11 +191,11 @@ export const IssueModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-3">
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-[#172B4D] mb-1.5">
+              <label className="block text-sm font-medium text-[#172B4D] mb-1">
                 Title / Summary <span className="text-[#DE350B]">*</span>
               </label>
               <input
@@ -203,55 +204,81 @@ export const IssueModal = ({
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                className="w-full px-3 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                 placeholder="Enter issue title"
                 required
               />
             </div>
 
-            {/* Description */}
-            <div>
-              <label className="block text-sm font-medium text-[#172B4D] mb-1.5">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                placeholder="Enter issue description"
-                rows={4}
-              />
+            {/* Basic Info Row - Type, Priority, Story Points */}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                  Type <span className="text-[#DE350B]">*</span>
+                </label>
+                <select
+                  value={formData.type}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value as IssueType })
+                  }
+                  className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  required
+                >
+                  <option value="task">Task</option>
+                  <option value="bug">Bug</option>
+                  <option value="story">Story</option>
+                  <option value="epic">Epic</option>
+                  <option value="feature">Feature</option>
+                  <option value="subtask">Subtask</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                  Priority
+                </label>
+                <select
+                  value={formData.priority}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      priority: e.target.value as "low" | "medium" | "high" | "critical",
+                    })
+                  }
+                  className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                  Story Points
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.storyPoints}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      storyPoints: parseInt(e.target.value) || 0,
+                    })
+                  }
+                  className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  placeholder="0"
+                />
+              </div>
             </div>
 
-            {/* Issue Type */}
-            <div>
-              <label className="block text-sm font-medium text-[#172B4D] mb-1.5">
-                Issue Type <span className="text-[#DE350B]">*</span>
-              </label>
-              <select
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData({ ...formData, type: e.target.value as IssueType })
-                }
-                className="w-full px-3 py-2 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                required
-              >
-                <option value="task">Task</option>
-                <option value="bug">Bug</option>
-                <option value="story">Story</option>
-                <option value="epic">Epic</option>
-                <option value="feature">Feature</option>
-                <option value="subtask">Subtask</option>
-              </select>
-            </div>
-
+            {/* Project and Assignee Row (Create Mode Only) */}
             {!issue && (
-              <>
-                {/* Project */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-[#172B4D] mb-1.5">
+                  <label className="block text-sm font-medium text-[#172B4D] mb-1">
                     Project <span className="text-red-500">*</span>
                   </label>
                   {projects.length > 0 ? (
@@ -266,9 +293,9 @@ export const IssueModal = ({
                         });
                       }}
                       required
-                      className="w-full px-3 py-2 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                      className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                     >
-                      <option value="">Select a project</option>
+                      <option value="">Select</option>
                       {projects.map((project) => (
                         <option key={project.id} value={project.id}>
                           {project.name}
@@ -276,139 +303,67 @@ export const IssueModal = ({
                       ))}
                     </select>
                   ) : (
-                    <div className="px-3 py-2 border border-[#DFE1E6] rounded text-sm text-[#6B778C] bg-[#F4F5F7]">
-                      No projects available
+                    <div className="px-2 py-1.5 border border-[#DFE1E6] rounded text-sm text-[#6B778C] bg-[#F4F5F7]">
+                      No projects
                     </div>
                   )}
                 </div>
 
-                {/* Sprint */}
-                {formData.projectId > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-[#172B4D] mb-1.5">
-                      Sprint (Optional)
-                    </label>
-                    <select
-                      value={formData.sprintId || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          sprintId: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                    >
-                      <option value="">No Sprint (Auto-assign active sprint)</option>
-                      {sprints.map((sprint) => (
-                        <option key={sprint.id} value={sprint.id}>
-                          {sprint.name}
-                        </option>
-                      ))}
-                    </select>
-                    {sprints.length === 0 && (
-                      <p className="text-xs text-[#6B778C] mt-1">
-                        No sprints available. An active sprint will be auto-assigned if available.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Assignee */}
-            <div>
-              <label className="block text-sm font-medium text-[#172B4D] mb-1.5">
-                Assignee (Optional)
-              </label>
-              <select
-                value={formData.assignedTo || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    assignedTo: parseInt(e.target.value) || 0,
-                  })
-                }
-                className="w-full px-3 py-2 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-              >
-                <option value="">Unassigned</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name}
-                  </option>
-                ))}
-              </select>
-              {users.length === 0 && (
-                <p className="text-xs text-[#6B778C] mt-1">
-                  No team members available. Issue will be unassigned.
-                </p>
-              )}
-            </div>
-
-            {/* Reporter */}
-            {!issue && (
-              <div>
-                <label className="block text-sm font-medium text-[#172B4D] mb-1.5">
-                  Reporter
-                </label>
-                <input
-                  type="text"
-                  value={currentUser?.name || "Current User"}
-                  disabled
-                  className="w-full px-3 py-2 border border-[#DFE1E6] rounded text-sm bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed"
-                />
-                <p className="text-xs text-[#6B778C] mt-1">
-                  Reporter is automatically set to the current user
-                </p>
+                <div>
+                  <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                    Assignee
+                  </label>
+                  <select
+                    value={formData.assignedTo || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        assignedTo: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
 
-            {/* Priority and Story Points */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Sprint (Create Mode Only) */}
+            {!issue && formData.projectId > 0 && (
               <div>
-                <label className="block text-sm font-medium text-[#172B4D] mb-1.5">
-                  Priority
+                <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                  Sprint
                 </label>
                 <select
-                  value={formData.priority}
+                  value={formData.sprintId || ""}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      priority: e.target.value as any,
+                      sprintId: parseInt(e.target.value) || 0,
                     })
                   }
-                  className="w-full px-3 py-2 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
+                  <option value="">No Sprint</option>
+                  {sprints.map((sprint) => (
+                    <option key={sprint.id} value={sprint.id}>
+                      {sprint.name}
+                    </option>
+                  ))}
                 </select>
               </div>
+            )}
 
-              <div>
-                <label className="block text-sm font-medium text-[#172B4D] mb-1.5">
-                  Story Points
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.storyPoints}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      storyPoints: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-
-            {/* Status (for edit mode) */}
+            {/* Status (Edit Mode Only) */}
             {issue && (
               <div>
-                <label className="block text-sm font-medium text-[#172B4D] mb-1.5">
+                <label className="block text-sm font-medium text-[#172B4D] mb-1">
                   Status <span className="text-[#DE350B]">*</span>
                 </label>
                 <select
@@ -419,7 +374,7 @@ export const IssueModal = ({
                       status: e.target.value as IssueStatus,
                     })
                   }
-                  className="w-full px-3 py-2 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
                   required
                 >
                   <option value="todo">To Do</option>
@@ -433,15 +388,68 @@ export const IssueModal = ({
               </div>
             )}
 
-            {/* Attachments Section (for both create and edit mode) */}
-            <div className="border-t border-[#DFE1E6] pt-4">
+            {/* Advanced Options Toggle */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center gap-1 text-xs font-medium text-[#0052CC] hover:text-[#0065FF] transition-colors"
+              >
+                {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {showAdvanced ? 'Hide' : 'Show'} Advanced
+              </button>
+            </div>
+
+            {/* Advanced Options (Collapsible) */}
+            {showAdvanced && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-3 pt-2 border-t border-[#DFE1E6] mt-2"
+              >
+                {/* Reporter (Create Mode Only) */}
+                {!issue && (
+                  <div>
+                    <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                      Reporter
+                    </label>
+                    <input
+                      type="text"
+                      value={currentUser?.name || "Current User"}
+                      disabled
+                      className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed"
+                    />
+                  </div>
+                )}
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    placeholder="Enter issue description"
+                    rows={3}
+                  />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Attachments Section */}
+            <div className="pt-2">
               <button
                 type="button"
                 onClick={() => setShowAttachments(!showAttachments)}
-                className="flex items-center gap-2 text-sm font-medium text-[#0052CC] hover:text-[#0065FF] transition-colors mb-3"
+                className="flex items-center gap-1 text-xs font-medium text-[#0052CC] hover:text-[#0065FF] transition-colors"
               >
-                <Paperclip className="w-4 h-4" />
-                Files ({pendingFiles.length})
+                {showAttachments ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {showAttachments ? 'Hide' : 'Show'} Attachments ({pendingFiles.length})
               </button>
 
               {showAttachments && (
@@ -449,7 +457,7 @@ export const IssueModal = ({
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="space-y-4"
+                  className="space-y-2 pt-2 border-t border-[#DFE1E6] mt-2"
                 >
                   {/* Upload Zone */}
                   <FileUploadZone
@@ -463,26 +471,21 @@ export const IssueModal = ({
                   {/* Files List */}
                   {pendingFiles.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-[#6B778C] mb-2">
-                        Selected Files ({pendingFiles.length})
-                      </p>
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         {pendingFiles.map((file, index) => (
                           <motion.div
                             key={`${file.name}-${index}`}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="flex items-center justify-between gap-3 p-3 bg-[#F4F5F7] rounded-lg hover:bg-[#EBECF0] transition-colors group"
+                            className="flex items-center justify-between gap-2 p-2 bg-[#F4F5F7] rounded text-xs group"
                           >
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className="flex-shrink-0 w-10 h-10 bg-[#0052CC]/10 rounded-lg flex items-center justify-center">
-                                <Paperclip className="w-5 h-5 text-[#0052CC]" />
-                              </div>
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Paperclip className="w-3 h-3 text-[#0052CC]" />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-[#172B4D] truncate">
+                                <p className="font-medium text-[#172B4D] truncate">
                                   {file.name}
                                 </p>
-                                <p className="text-xs text-[#6B778C]">
+                                <p className="text-[#6B778C]">
                                   {(file.size / 1024).toFixed(2)} KB
                                 </p>
                               </div>
@@ -496,9 +499,9 @@ export const IssueModal = ({
                                 );
                                 toast.success("File removed");
                               }}
-                              className="flex-shrink-0 p-2 hover:bg-[#FFECEB] rounded transition-colors"
+                              className="flex-shrink-0 p-1 hover:bg-[#FFECEB] rounded transition-colors"
                             >
-                              <Trash2 className="w-4 h-4 text-[#DE350B]" />
+                              <Trash2 className="w-3 h-3 text-[#DE350B]" />
                             </button>
                           </motion.div>
                         ))}
@@ -510,18 +513,18 @@ export const IssueModal = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-[#DFE1E6]">
+          <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-[#DFE1E6]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-[#42526E] hover:bg-[#F4F5F7] rounded transition-colors"
+              className="px-3 py-1.5 text-sm font-medium text-[#42526E] hover:bg-[#F4F5F7] rounded transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium bg-[#0052CC] text-white rounded hover:bg-[#0065FF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-3 py-1.5 text-sm font-medium bg-[#0052CC] text-white rounded hover:bg-[#0065FF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
             >
               <Save className="w-4 h-4" />
               {isSubmitting ? "Saving..." : issue ? "Update" : "Create"}

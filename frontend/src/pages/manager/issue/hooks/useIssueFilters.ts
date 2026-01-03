@@ -14,7 +14,7 @@ export const useIssueFilters = (issues: UIIssue[]) => {
   const filteredIssues = useMemo(() => {
     return issues.filter((issue) => {
       const matchesSearch =
-        issue.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(issue.id).toLowerCase().includes(searchQuery.toLowerCase()) ||
         issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         issue.project.name.toLowerCase().includes(searchQuery.toLowerCase());
 

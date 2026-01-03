@@ -1,232 +1,250 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
-  Folder, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock, 
+import {
+  Folder,
   Users,
-  Calendar as CalendarIcon
+  Calendar,
+  Activity,
+  TrendingUp,
 } from "lucide-react";
+
 import { projectApi } from "@/services/api/projectApi";
 import { issueApi } from "@/services/api/issueApi";
 
 const OverviewTab = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+
   const [project, setProject] = useState<any>(null);
   const [issues, setIssues] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /* ===========================
+      DATA FETCH
+  ============================ */
   useEffect(() => {
-    const fetchData = async () => {
+    if (!id) return;
+
+    const load = async () => {
       try {
         setLoading(true);
-        const projectRes = await projectApi.getProjectById(Number(id));
+        const [projectRes, issueRes] = await Promise.all([
+          projectApi.getProjectById(+id),
+          issueApi.getByProject(+id)
+        ]);
+
         setProject(projectRes);
-        
-        // Get issues for this project using the dedicated API endpoint
-        const projectIssues = await issueApi.getIssuesByProject(Number(id));
-        setIssues(projectIssues);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+        setIssues(issueRes || []);
+      } catch (err) {
+        console.error("Overview load failed", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    load();
   }, [id]);
 
+  /* ===========================
+      DERIVED METRICS (MANAGER VIEW)
+  ============================ */
+  const metrics = useMemo(() => {
+    const total = issues.length;
+    const completed = issues.filter(i =>
+      ["completed", "closed"].includes(i.status?.toLowerCase())
+    ).length;
+
+    const blocked = issues.filter(i =>
+      ["blocked", "critical"].includes(i.priority?.toLowerCase())
+    ).length;
+
+    const pending = total - completed;
+    const progress = total ? Math.round((completed / total) * 100) : 0;
+
+    return { total, completed, pending, blocked, progress };
+  }, [issues]);
+
+  const statusColor =
+    metrics.progress >= 80
+      ? "bg-green-500"
+      : metrics.progress >= 50
+      ? "bg-yellow-500"
+      : "bg-red-500";
+
+  /* ===========================
+      LOADER
+  ============================ */
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-64 py-12">
+      <div className="flex flex-col items-center justify-center py-20">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full mb-4"
+          className="h-12 w-12 border-4 border-indigo-500 border-t-transparent rounded-full"
         />
-        <p className="text-gray-600 text-center">Loading project overview...</p>
+        <p className="mt-4 text-gray-500">Preparing project overview…</p>
       </div>
     );
   }
 
-  // Calculate stats
-  const totalIssues = issues.length;
-  const completedIssues = issues.filter((issue: any) => issue.status?.toLowerCase() === 'completed').length;
-  const pendingIssues = issues.filter((issue: any) => 
-    issue.status?.toLowerCase() !== 'completed' && 
-    issue.status?.toLowerCase() !== 'closed'
-  ).length;
-  const teamSize = project?.teamMembers || 1; // Assuming team members count
-
+  /* ===========================
+      UI
+  ============================ */
   return (
     <div className="space-y-6">
-      {/* Project Description */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200"
-      >
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Project Description</h3>
-        <p className="text-gray-600 leading-relaxed">
-          {project?.description || 'No description provided for this project.'}
-        </p>
-      </motion.div>
+      {/* ==================================================
+          HEADER SUMMARY (Always visible)
+      ================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="lg:col-span-2 bg-white rounded-2xl p-6 border shadow-sm"
+        >
+          <h2 className="text-xl font-semibold text-gray-800">
+            {project?.name}
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {project?.description || "No description provided."}
+          </p>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-sky-100 text-sky-600">
-              <Folder className="w-5 h-5" />
+          {/* Progress */}
+          <div className="mt-5">
+            <div className="flex justify-between text-sm text-gray-600 mb-1">
+              <span>Overall Progress</span>
+              <span>{metrics.progress}%</span>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Issues</p>
-              <p className="text-xl font-bold text-gray-800">{totalIssues}</p>
+            <div className="h-2 rounded-full bg-gray-200">
+              <div
+                className={`h-2 rounded-full ${statusColor}`}
+                style={{ width: `${metrics.progress}%` }}
+              />
             </div>
           </div>
         </motion.div>
-        
+
+        {/* Health Card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
+          className="bg-white rounded-2xl p-6 border shadow-sm"
         >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-100 text-green-600">
-              <CheckCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Completed</p>
-              <p className="text-xl font-bold text-gray-800">{completedIssues}</p>
-            </div>
-          </div>
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-          className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-yellow-100 text-yellow-600">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Pending</p>
-              <p className="text-xl font-bold text-gray-800">{pendingIssues}</p>
-            </div>
-          </div>
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.4 }}
-          className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Team Size</p>
-              <p className="text-xl font-bold text-gray-800">{teamSize}</p>
-            </div>
+          <h3 className="font-semibold text-gray-700 mb-4">
+            Project Health
+          </h3>
+
+          <div className="space-y-3 text-sm">
+            <HealthRow label="Schedule" value="On Track" color="green" />
+            <HealthRow
+              label="Issues Risk"
+              value={metrics.blocked > 0 ? "Attention Needed" : "Low"}
+              color={metrics.blocked > 0 ? "red" : "green"}
+            />
+            <HealthRow label="Delivery" value={`${metrics.progress}%`} />
           </div>
         </motion.div>
       </div>
 
-      {/* Project Metadata */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.5 }}
-        className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200"
-      >
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Project Metadata</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center gap-3">
-            <CalendarIcon className="w-5 h-5 text-gray-500" />
-            <div>
-              <p className="text-sm text-gray-600">Start Date</p>
-              <p className="font-medium text-gray-800">
-                {project?.start_date ? new Date(project.start_date).toLocaleDateString() : 'N/A'}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <CalendarIcon className="w-5 h-5 text-gray-500" />
-            <div>
-              <p className="text-sm text-gray-600">End Date</p>
-              <p className="font-medium text-gray-800">
-                {project?.end_date ? new Date(project.end_date).toLocaleDateString() : 'N/A'}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Users className="w-5 h-5 text-gray-500" />
-            <div>
-              <p className="text-sm text-gray-600">Owner</p>
-              <p className="font-medium text-gray-800">{project?.created_by || 'N/A'}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Folder className="w-5 h-5 text-gray-500" />
-            <div>
-              <p className="text-sm text-gray-600">Project ID</p>
-              <p className="font-medium text-gray-800">{project?.id || 'N/A'}</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+      {/* ==================================================
+          KEY METRICS
+      ================================================== */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Stat icon={Folder} label="Total Issues" value={metrics.total} />
+        <Stat
+          icon={Activity}
+          label="Completed"
+          value={metrics.completed}
+          color="green"
+        />
+        <Stat
+          icon={Activity}
+          label="Pending"
+          value={metrics.pending}
+          color="yellow"
+        />
+        <Stat
+          icon={Activity}
+          label="Blocked"
+          value={metrics.blocked}
+          color="red"
+        />
+      </div>
 
-      {/* Recent Activity */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.6 }}
-        className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200"
-      >
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Recent Activity</h3>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-800">Project created</p>
-              <p className="text-xs text-gray-500">Just now</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-800">New issue created</p>
-              <p className="text-xs text-gray-500">5 minutes ago</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-800">Issue status updated</p>
-              <p className="text-xs text-gray-500">10 minutes ago</p>
-            </div>
-          </div>
+      {/* ==================================================
+          METADATA
+      ================================================== */}
+      <div className="bg-white rounded-2xl p-6 border shadow-sm">
+        <h3 className="text-lg font-semibold mb-4">Project Information</h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+          <Meta icon={Calendar} label="Start" value={formatDate(project?.start_date)} />
+          <Meta icon={Calendar} label="End" value={formatDate(project?.end_date)} />
+          <Meta icon={Users} label="Owner" value={project?.created_by || "—"} />
+          <Meta icon={Activity} label="Status" value={project?.status || "Active"} />
         </div>
-      </motion.div>
+      </div>
+
+      {/* ==================================================
+          MANAGER INSIGHTS
+      ================================================== */}
+      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 border">
+        <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-indigo-600" />
+          Manager Insights
+        </h3>
+
+        <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
+          <li>
+            {metrics.blocked > 0
+              ? "Critical issues detected — review Issues tab."
+              : "No major blockers identified."}
+          </li>
+          <li>
+            Completion rate is <strong>{metrics.progress}%</strong>.
+          </li>
+          <li>
+            {metrics.progress < 50
+              ? "Project needs closer monitoring."
+              : "Project delivery is stable."}
+          </li>
+        </ul>
+      </div>
     </div>
   );
 };
 
 export default OverviewTab;
+
+/* ===========================
+   REUSABLE COMPONENTS
+=========================== */
+
+const Stat = ({ icon: Icon, label, value, color = "indigo" }: any) => (
+  <div className="bg-white rounded-xl p-4 border shadow-sm">
+    <div className={`p-2 rounded-lg bg-${color}-100 w-fit mb-2`}>
+      <Icon className={`w-5 h-5 text-${color}-600`} />
+    </div>
+    <p className="text-xs text-gray-500">{label}</p>
+    <p className="text-xl font-bold">{value}</p>
+  </div>
+);
+
+const Meta = ({ icon: Icon, label, value }: any) => (
+  <div className="flex items-center gap-3">
+    <Icon className="w-5 h-5 text-gray-400" />
+    <div>
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="font-medium">{value}</p>
+    </div>
+  </div>
+);
+
+const HealthRow = ({ label, value, color = "gray" }: any) => (
+  <div className="flex justify-between">
+    <span>{label}</span>
+    <span className={`text-${color}-600 font-medium`}>{value}</span>
+  </div>
+);
+
+const formatDate = (date?: string) =>
+  date ? new Date(date).toLocaleDateString() : "—";

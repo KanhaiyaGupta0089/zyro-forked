@@ -1,363 +1,372 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { 
-  Settings, 
-  Users, 
-  Eye, 
-  Trash2, 
-  Archive, 
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Settings,
   Save,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
 import { projectApi } from "@/services/api/projectApi";
+import { Project } from "@/services/api/types";
+
+// Mock UI components - these should be imported from your component library
+const Section = ({ title, icon, danger, children }: { title: string; icon: React.ReactNode; danger?: boolean; children: React.ReactNode }) => (
+  <div className={`p-4 rounded-lg border ${danger ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white'}`}>
+    <div className="flex items-center gap-2 mb-3">
+      {icon}
+      <h3 className="font-semibold">{title}</h3>
+    </div>
+    <div className="space-y-3">
+      {children}
+    </div>
+  </div>
+);
+
+const Input = ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => (
+  <div>
+    <label className="block text-sm font-medium mb-1">{label}</label>
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full border border-gray-300 rounded px-3 py-2"
+    />
+  </div>
+);
+
+const Textarea = ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => (
+  <div>
+    <label className="block text-sm font-medium mb-1">{label}</label>
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full border border-gray-300 rounded px-3 py-2"
+      rows={3}
+    />
+  </div>
+);
+
+const Select = ({ 
+  label, 
+  value, 
+  onChange, 
+  options 
+}: { 
+  label: string; 
+  value: string; 
+  onChange: (value: string) => void; 
+  options: { value: string; label: string }[] 
+}) => (
+  <div>
+    <label className="block text-sm font-medium mb-1">{label}</label>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full border border-gray-300 rounded px-3 py-2"
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  </div>
+);
+
+const DangerAction = ({ 
+  title, 
+  description, 
+  action, 
+  label, 
+  destructive 
+}: { 
+  title: string; 
+  description: string; 
+  action: () => void; 
+  label: string; 
+  destructive?: boolean; 
+}) => (
+  <div className="flex justify-between items-start p-3 border border-gray-200 rounded">
+    <div className="flex-1">
+      <h4 className="font-medium">{title}</h4>
+      <p className="text-sm text-gray-500 mt-1">{description}</p>
+    </div>
+    <button
+      onClick={action}
+      className={`px-3 py-1.5 rounded text-sm ${destructive ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700'}`}
+    >
+      {label}
+    </button>
+  </div>
+);
+
+const ConfirmModal = ({ 
+  open, 
+  onClose, 
+  onConfirm, 
+  title, 
+  description, 
+  confirmText, 
+  confirmInput 
+}: { 
+  open: boolean; 
+  onClose: () => void; 
+  onConfirm: () => void; 
+  title: string; 
+  description: string; 
+  confirmText: string; 
+  confirmInput?: {
+    value: string;
+    onChange: (value: string) => void;
+    mustMatch: string;
+  };
+}) => {
+  if (!open) return null;
+
+  const isConfirmed =
+    !!confirmInput &&
+    confirmInput.mustMatch.length > 0 &&
+    confirmInput.value === confirmInput.mustMatch;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h3 className="font-semibold text-lg mb-2">{title}</h3>
+        <p className="text-gray-600 mb-4">{description}</p>
+        
+        {confirmInput && (
+          <div className="mb-4">
+            <input
+              type="text"
+              value={confirmInput.value}
+              onChange={(e) => confirmInput.onChange(e.target.value)}
+              placeholder={`Type "${confirmInput.mustMatch}" to confirm`}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
+            />
+            {!isConfirmed && (
+              <p className="text-red-500 text-sm">Text must match exactly</p>
+            )}
+          </div>
+        )}
+        
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border rounded"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={!isConfirmed}
+            className="px-4 py-2 bg-red-600 text-white rounded disabled:opacity-50"
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ======================================================
+   TYPES & PERMISSIONS
+====================================================== */
+
+type Visibility = "private" | "team" | "public";
+type Role = "owner" | "admin" | "manager" | "member";
+
+const canManageProject = (role: Role) =>
+  role === "owner" || role === "admin";
+
+/* ======================================================
+   COMPONENT
+====================================================== */
 
 const SettingsTab = () => {
-  const { id } = useParams();
-  const [project, setProject] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    visibility: 'private'
-  });
-  
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
+  /* ---- TEMP: replace with auth state ---- */
+  const currentUserRole: Role = "owner";
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [project, setProject] = useState<Project | null>(null);
+
+  const [form, setForm] = useState<{
+    name: string;
+    description: string;
+    visibility: Visibility;
+  }>({
+    name: "",
+    description: "",
+    visibility: "private",
+  });
+
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+
+  /* ===============================
+      FETCH
+  =============================== */
   useEffect(() => {
-    const fetchProject = async () => {
+    if (!id) return;
+
+    const load = async () => {
       try {
         setLoading(true);
-        const res = await projectApi.getProjectById(Number(id));
-        setProject(res);
-        setFormData({
-          name: res.name || '',
-          description: res.description || '',
-          visibility: 'private' // Default visibility since not in project object
+        const p = await projectApi.getProjectById(+id);
+        setProject(p);
+        setForm({
+          name: p.name,
+          description: p.description ?? "",
+          visibility: "private", // Default visibility since Project type doesn't have this field
         });
-      } catch (error) {
-        console.error('Error fetching project:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProject();
+    load();
   }, [id]);
 
-  const handleSave = async () => {
+  /* ===============================
+      ACTIONS
+  =============================== */
+  const saveChanges = async () => {
     try {
       setSaving(true);
-      // await projectApi.updateProject(Number(id), formData);
-      // For demo purposes, we'll just update the local state
-      setProject({...project, ...formData});
-    } catch (error) {
-      console.error('Error updating project:', error);
+      // await projectApi.updateProject(+id!, form);
+      if (project) {
+        setProject({ ...project, ...form });
+      }
     } finally {
       setSaving(false);
     }
   };
 
-  const handleArchive = async () => {
-    try {
-      // await projectApi.updateProject(Number(id), { status: 'archived' });
-      setShowArchiveConfirm(false);
-      navigate('/projects'); // Navigate away after archiving
-    } catch (error) {
-      console.error('Error archiving project:', error);
-    }
+  const archiveProject = async () => {
+    // In a real implementation, this would call the API to archive the project
+    // await projectApi.updateProject(+id!, { ...project, status: 'archived' });
+    navigate("/projects");
   };
 
-  const handleDelete = async () => {
-    try {
-      // await projectApi.deleteProject(Number(id));
-      setShowDeleteConfirm(false);
-      navigate('/projects'); // Navigate away after deletion
-    } catch (error) {
-      console.error('Error deleting project:', error);
-    }
+  const deleteProject = async () => {
+    // In a real implementation, this would call the API to delete the project
+    // await projectApi.deleteProject(+id!);
+    navigate("/projects");
   };
 
+  /* ===============================
+      LOADING
+  =============================== */
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-64 py-12">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full mb-4"
-        />
-        <p className="text-gray-600 text-center">Loading project settings...</p>
+      <div className="flex justify-center py-20 text-gray-500">
+        Loading settings…
       </div>
     );
   }
 
+  /* ===============================
+      UI
+  =============================== */
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Settings</h2>
+      <h2 className="text-2xl font-bold">Project Settings</h2>
 
-      {/* Project Configuration */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
-      >
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-          <Settings className="w-5 h-5" />
-          Project Configuration
-        </h3>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-              placeholder="Enter project name"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-              placeholder="Enter project description"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
-            <select
-              value={formData.visibility}
-              onChange={(e) => setFormData({...formData, visibility: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-            >
-              <option value="private">Private</option>
-              <option value="team">Team</option>
-              <option value="public">Public</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              {formData.visibility === 'private' ? 'Only you and project members can access this project' :
-               formData.visibility === 'team' ? 'All team members can access this project' :
-               'Anyone in the organization can access this project'}
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex justify-end mt-6">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:opacity-50"
-          >
-            {saving ? (
-              <>
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save Changes
-              </>
-            )}
-          </button>
-        </div>
-      </motion.div>
+      {/* BASIC SETTINGS */}
+      <Section title="Configuration" icon={<Settings />}>
+        <Input
+          label="Project Name"
+          value={form.name}
+          onChange={(v) => setForm({ ...form, name: v })}
+        />
 
-      {/* Team Management */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
-      >
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-          <Users className="w-5 h-5" />
-          Team Management
-        </h3>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Default Workflow</label>
-            <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500">
-              <option>Basic Workflow</option>
-              <option>Scrum Workflow</option>
-              <option>Kanban Workflow</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notification Preferences</label>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded border-gray-300" defaultChecked />
-                <span className="text-sm text-gray-700">Email notifications</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded border-gray-300" defaultChecked />
-                <span className="text-sm text-gray-700">In-app notifications</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded border-gray-300" />
-                <span className="text-sm text-gray-700">Slack notifications</span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+        <Textarea
+          label="Description"
+          value={form.description}
+          onChange={(v) => setForm({ ...form, description: v })}
+        />
 
-      {/* Project Visibility */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.2 }}
-        className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
-      >
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-          <Eye className="w-5 h-5" />
-          Project Visibility
-        </h3>
-        
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <input type="radio" id="private" name="visibility" value="private" className="mt-1" defaultChecked />
-            <label htmlFor="private" className="flex-1">
-              <h4 className="font-medium text-gray-800">Private</h4>
-              <p className="text-sm text-gray-600">Only you and project members can access this project</p>
-            </label>
-          </div>
-          
-          <div className="flex items-start gap-3">
-            <input type="radio" id="team" name="visibility" value="team" className="mt-1" />
-            <label htmlFor="team" className="flex-1">
-              <h4 className="font-medium text-gray-800">Team</h4>
-              <p className="text-sm text-gray-600">All team members can access this project</p>
-            </label>
-          </div>
-          
-          <div className="flex items-start gap-3">
-            <input type="radio" id="public" name="visibility" value="public" className="mt-1" />
-            <label htmlFor="public" className="flex-1">
-              <h4 className="font-medium text-gray-800">Public</h4>
-              <p className="text-sm text-gray-600">Anyone in the organization can access this project</p>
-            </label>
-          </div>
-        </div>
-      </motion.div>
+        <Select
+          label="Visibility"
+          value={form.visibility}
+          onChange={(v) =>
+            setForm({ ...form, visibility: v as Visibility })
+          }
+          options={[
+            { value: "private", label: "Private" },
+            { value: "team", label: "Team" },
+            { value: "public", label: "Public" },
+          ]}
+        />
 
-      {/* Danger Zone */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.3 }}
-        className="bg-red-50 p-6 rounded-xl border border-red-200 shadow-sm"
-      >
-        <h3 className="text-lg font-semibold text-red-800 mb-4 flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5" />
-          Danger Zone
-        </h3>
-        
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-white rounded-lg border border-red-200">
-            <div>
-              <h4 className="font-medium text-gray-800">Archive Project</h4>
-              <p className="text-sm text-gray-600">Project will be hidden from main views but can be restored later</p>
-            </div>
+        {canManageProject(currentUserRole) && (
+          <div className="flex justify-end">
             <button
-              onClick={() => setShowArchiveConfirm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors whitespace-nowrap"
+              onClick={saveChanges}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-50"
             >
-              <Archive className="w-4 h-4" />
-              Archive Project
+              <Save className="w-4 h-4" />
+              Save Changes
             </button>
           </div>
-          
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-white rounded-lg border border-red-200">
-            <div>
-              <h4 className="font-medium text-gray-800">Delete Project</h4>
-              <p className="text-sm text-gray-600">Permanently delete this project and all its data</p>
-            </div>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors whitespace-nowrap"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete Project
-            </button>
-          </div>
-        </div>
-      </motion.div>
+        )}
+      </Section>
 
-      {/* Archive Confirmation Modal */}
-      {showArchiveConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl"
-          >
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Archive Project</h3>
-            <p className="text-gray-600 mb-6">Are you sure you want to archive this project? You can restore it later.</p>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowArchiveConfirm(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleArchive}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Archive
-              </button>
-            </div>
-          </motion.div>
-        </div>
+      {/* DANGER ZONE */}
+      {canManageProject(currentUserRole) && (
+        <Section
+          title="Danger Zone"
+          icon={<AlertTriangle />}
+          danger
+        >
+          <DangerAction
+            title="Archive Project"
+            description="You can restore it later."
+            action={() => setConfirmArchive(true)}
+            label="Archive"
+          />
+
+          <DangerAction
+            title="Delete Project"
+            description="This action is permanent."
+            action={() => setConfirmDelete(true)}
+            label="Delete"
+            destructive
+          />
+        </Section>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl"
-          >
-            <h3 className="text-xl font-bold text-red-600 mb-2">Delete Project</h3>
-            <p className="text-gray-600 mb-6">Are you absolutely sure? This action cannot be undone. This will permanently delete the project and all its data.</p>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      {/* ARCHIVE CONFIRM */}
+      <ConfirmModal
+        open={confirmArchive}
+        onClose={() => setConfirmArchive(false)}
+        onConfirm={archiveProject}
+        title="Archive Project?"
+        description="The project will be hidden but recoverable."
+        confirmText="Archive"
+      />
+
+      {/* DELETE CONFIRM */}
+      <ConfirmModal
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={deleteProject}
+        title="Delete Project"
+        description={`Type "${project?.name || ''}" to confirm deletion.`}
+        confirmText="Delete"
+        confirmInput={{
+          value: deleteInput,
+          onChange: setDeleteInput,
+          mustMatch: project?.name || '',
+        }}
+      />
     </div>
   );
 };
