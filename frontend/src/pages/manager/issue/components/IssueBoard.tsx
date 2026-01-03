@@ -9,6 +9,7 @@ import { statuses, types } from "../constants/issueConfig";
 interface IssueBoardProps {
   issuesByStatus: Record<IssueStatus, UIIssue[]>;
   activeIssue: UIIssue | null;
+  pointerOffset?: { x: number; y: number } | null;
   sensors: any;
   onDragStart: (event: any) => void;
   onDragEnd: (event: any) => void;
@@ -19,6 +20,7 @@ interface IssueBoardProps {
 export const IssueBoard = ({
   issuesByStatus,
   activeIssue,
+  pointerOffset,
   sensors,
   onDragStart,
   onDragEnd,
@@ -51,14 +53,23 @@ export const IssueBoard = ({
           ))}
         </div>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeIssue ? (
             (() => {
               const TypeIcon = types[activeIssue.type as keyof typeof types]?.icon || Circle;
               const typeColor = types[activeIssue.type as keyof typeof types]?.color || "#6B778C";
 
               return (
-                <div className="bg-white border border-[#0052CC] rounded p-2.5 w-72 shadow-xl cursor-grabbing" style={{ transform: 'rotateZ(0deg)' }}>
+                <div 
+                  className="bg-white border-2 border-[#0052CC] rounded p-2.5 w-72 shadow-xl cursor-grabbing" 
+                  style={{ 
+                    pointerEvents: 'none',
+                    transform: pointerOffset 
+                      ? `translate(-${pointerOffset.x}px, -${pointerOffset.y}px)`
+                      : undefined,
+                    transformOrigin: '0 0',
+                  }}
+                >
                   <div className="flex items-center gap-1.5 mb-2">
                     <GripVertical className="w-3.5 h-3.5 text-[#0052CC]" />
                     <TypeIcon

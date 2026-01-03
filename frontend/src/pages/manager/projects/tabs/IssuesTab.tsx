@@ -113,7 +113,7 @@ const IssuesTab = () => {
     }
   };
 
-  const { activeIssue, handleDragStart, handleDragEnd } = useIssueDragDrop(
+  const { activeIssue, pointerOffset, handleDragStart, handleDragEnd } = useIssueDragDrop(
     projectIssues,
     updateIssueStatus
   );
@@ -310,6 +310,7 @@ const IssuesTab = () => {
                 <IssueBoard
                   issuesByStatus={projectIssuesByStatus}
                   activeIssue={activeIssue}
+                  pointerOffset={pointerOffset}
                   sensors={sensors}
                   onDragStart={handleDragStartWithToast}
                   onDragEnd={handleDragEndWithToast}
