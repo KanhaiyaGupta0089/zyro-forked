@@ -35,13 +35,13 @@ import CreateProject from "@/pages/manager/projects/CreateProject";
 import ProjectDetails from "@/pages/manager/projects/ProjectDetails";
 import EditProject from "@/pages/manager/projects/EditProject";
 import Issue from "@/pages/manager/issue/Issue";
-// import OverviewTab from "@/pages/manager/projects/tabs/OverviewTab";
-// import IssuesTab from "@/pages/manager/projects/tabs/IssuesTab";
-// import KanbanTab from "@/pages/manager/projects/tabs/KanbanTab";
-// import TeamTab from "@/pages/manager/projects/tabs/TeamTab";
-// import TimelineTab from "@/pages/manager/projects/tabs/TimelineTab";
-// import AnalyticsTab from "@/pages/manager/projects/tabs/AnalyticsTab";
-// import SettingsTab from "@/pages/manager/projects/tabs/SettingsTab";
+import OverviewTab from "@/pages/manager/projects/tabs/OverviewTab";
+import IssuesTab from "@/pages/manager/projects/tabs/IssuesTab";
+import KanbanTab from "@/pages/manager/projects/tabs/KanbanTab";
+import TeamTab from "@/pages/manager/projects/tabs/TeamTab";
+import TimelineTab from "@/pages/manager/projects/tabs/TimelineTab";
+import AnalyticsTab from "@/pages/manager/projects/tabs/AnalyticsTab";
+import SettingsTab from "@/pages/manager/projects/tabs/SettingsTab";
 import People from "@/pages/manager/people/People";
 
 import "./App.css";
@@ -209,14 +209,14 @@ function App() {
             <Route path=":id/edit" element={<EditProject />} />
             {/* Nested routes for project details with tabs */}
             <Route path=":id" element={<ProjectDetails />}>
-              {/* <Route index element={<OverviewTab />} />
+              <Route index element={<OverviewTab />} />
               <Route path="overview" element={<OverviewTab />} />
               <Route path="issues" element={<IssuesTab />} />
               <Route path="kanban" element={<KanbanTab />} />
               <Route path="team" element={<TeamTab />} />
               <Route path="timeline" element={<TimelineTab />} />
               <Route path="analytics" element={<AnalyticsTab />} />
-              <Route path="settings" element={<SettingsTab />} /> */}
+              <Route path="settings" element={<SettingsTab />} />
             </Route>
           </Route>
 

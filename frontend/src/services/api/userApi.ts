@@ -109,7 +109,6 @@ export const userApi = {
       throw error;
     }
   },
-};
 
   // DELETE user
   deleteUser: async (id: number) => {
