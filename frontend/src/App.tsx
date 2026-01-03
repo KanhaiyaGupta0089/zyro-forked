@@ -35,6 +35,14 @@ import CreateProject from "@/pages/manager/projects/CreateProject";
 import ProjectDetails from "@/pages/manager/projects/ProjectDetails";
 import EditProject from "@/pages/manager/projects/EditProject";
 import Issue from "@/pages/manager/issue/Issue";
+// import OverviewTab from "@/pages/manager/projects/tabs/OverviewTab";
+// import IssuesTab from "@/pages/manager/projects/tabs/IssuesTab";
+// import KanbanTab from "@/pages/manager/projects/tabs/KanbanTab";
+// import TeamTab from "@/pages/manager/projects/tabs/TeamTab";
+// import TimelineTab from "@/pages/manager/projects/tabs/TimelineTab";
+// import AnalyticsTab from "@/pages/manager/projects/tabs/AnalyticsTab";
+// import SettingsTab from "@/pages/manager/projects/tabs/SettingsTab";
+import People from "@/pages/manager/people/People";
 
 import "./App.css";
 
@@ -187,7 +195,7 @@ function App() {
             <Route index element={<EmployeePage />} />
           </Route>
 
-          {/* ---------- PROJECTS (✅ CORRECT SETUP) ---------- */}
+          {/* ---------- PROJECTS ---------- */}
           <Route
             path="/projects"
             element={
@@ -198,15 +206,18 @@ function App() {
           >
             <Route index element={<Project />} />
             <Route path="create" element={<CreateProject />} />
-            <Route path=":id" element={<ProjectDetails />} />
             <Route path=":id/edit" element={<EditProject />} />
-            <Route path=":id/overview" element={<ProjectDetails />} />
-            <Route path=":id/issues" element={<ProjectDetails />} />
-            <Route path=":id/kanban" element={<ProjectDetails />} />
-            <Route path=":id/team" element={<ProjectDetails />} />
-            <Route path=":id/timeline" element={<ProjectDetails />} />
-            <Route path=":id/analytics" element={<ProjectDetails />} />
-            <Route path=":id/settings" element={<ProjectDetails />} />
+            {/* Nested routes for project details with tabs */}
+            <Route path=":id" element={<ProjectDetails />}>
+              {/* <Route index element={<OverviewTab />} />
+              <Route path="overview" element={<OverviewTab />} />
+              <Route path="issues" element={<IssuesTab />} />
+              <Route path="kanban" element={<KanbanTab />} />
+              <Route path="team" element={<TeamTab />} />
+              <Route path="timeline" element={<TimelineTab />} />
+              <Route path="analytics" element={<AnalyticsTab />} />
+              <Route path="settings" element={<SettingsTab />} /> */}
+            </Route>
           </Route>
 
           {/* ---------- ISSUES ---------- */}
@@ -237,6 +248,18 @@ function App() {
               <Route path="billing" element={<BillingSettings />} />
               <Route path="security" element={<SecuritySettings />} />
             </Route>
+          </Route>
+
+          {/* ---------- PEOPLE ---------- */}
+          <Route
+            path="/people"
+            element={
+              <RoleProtectedRoute allowedRoles={['manager', 'admin']}>
+                <HomeLayout />
+              </RoleProtectedRoute>
+            }
+          >
+            <Route index element={<People />} />
           </Route>
 
           {/* ---------- FALLBACK ---------- */}
