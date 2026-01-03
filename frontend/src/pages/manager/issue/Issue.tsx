@@ -42,7 +42,7 @@ const Issues = () => {
     useSensor(KeyboardSensor)
   );
 
-  const { activeIssue, handleDragStart, handleDragEnd } = useIssueDragDrop(
+  const { activeIssue, pointerOffset, handleDragStart, handleDragEnd } = useIssueDragDrop(
     issues,
     updateIssueStatus
   );
@@ -114,6 +114,7 @@ const Issues = () => {
               <IssueBoard
                 issuesByStatus={issuesByStatus}
                 activeIssue={activeIssue}
+                pointerOffset={pointerOffset}
                 sensors={sensors}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}

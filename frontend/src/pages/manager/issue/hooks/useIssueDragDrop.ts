@@ -9,15 +9,41 @@ export const useIssueDragDrop = (
   onStatusChange: (issueId: string, newStatus: IssueStatus) => Promise<boolean>
 ) => {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [pointerOffset, setPointerOffset] = useState<{ x: number; y: number } | null>(null);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+
+    // Calculate offset from click position to card's top-left corner
+    if (event.activatorEvent && event.activatorEvent instanceof PointerEvent) {
+      const pointerEvent = event.activatorEvent;
+      const clickX = pointerEvent.clientX;
+      const clickY = pointerEvent.clientY;
+
+      // Get the initial bounding rect of the dragged element
+      const rect = event.active.rect.current.initial;
+      
+      if (rect) {
+        // Calculate offset: where user clicked relative to card's top-left corner
+        const offsetX = clickX - rect.left;
+        const offsetY = clickY - rect.top;
+        
+        setPointerOffset({ x: offsetX, y: offsetY });
+      } else {
+        // Fallback: default to center of card (w-72 = 288px, center ~144px)
+        setPointerOffset({ x: 144, y: 50 });
+      }
+    } else {
+      // Default to center of card if no pointer event
+      setPointerOffset({ x: 144, y: 50 });
+    }
   }, []);
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
       const { active, over } = event;
       setActiveId(null);
+      setPointerOffset(null);
 
       if (!over) return;
 
@@ -50,6 +76,7 @@ export const useIssueDragDrop = (
   return {
     activeId,
     activeIssue,
+    pointerOffset,
     handleDragStart,
     handleDragEnd,
   };
