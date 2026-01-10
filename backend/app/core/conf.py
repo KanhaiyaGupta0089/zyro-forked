@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Get the directory where this file is located
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -69,12 +70,25 @@ CLOUDINARY_SECURE = os.getenv("CLOUDINARY_SECURE")
 # Logging Settings
 IS_LOCAL = os.getenv("IS_LOCAL", "False").lower() == "true"
 
-# Redis Settings
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+# Redis Settings - Parse from URL or individual env vars
+REDIS_URL = os.getenv("REDIS_URL", None)
 
-
+if REDIS_URL:
+    # Parse Redis URL: rediss://username:password@host:port
+    parsed = urlparse(REDIS_URL)
+    REDIS_HOST = parsed.hostname or os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT = parsed.port or int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_USERNAME = parsed.username or os.getenv("REDIS_USERNAME", None)
+    REDIS_PASSWORD = parsed.password or os.getenv("REDIS_PASSWORD", None)
+    REDIS_USE_SSL = parsed.scheme == "rediss"  # rediss:// means SSL
+else:
+    REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_USERNAME = os.getenv("REDIS_USERNAME", None)
+    REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+    REDIS_USE_SSL = os.getenv("REDIS_USE_SSL", "False").lower() == "true"
+    
+    
 # Error Notification Settings
 ERROR_NOTIFICATION_EMAILS = os.getenv("ERROR_NOTIFICATION_EMAILS", "").split(",") if os.getenv("ERROR_NOTIFICATION_EMAILS") else []
 ERROR_NOTIFICATION_EMAILS = [email.strip() for email in ERROR_NOTIFICATION_EMAILS if email.strip()]
