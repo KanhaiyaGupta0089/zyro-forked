@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Edit, Trash2, Circle } from "lucide-react";
 import { UIIssue } from "../hooks/useIssues";
@@ -10,6 +11,8 @@ interface IssueListProps {
 }
 
 export const IssueList = ({ issues, onEdit, onDelete }: IssueListProps) => {
+  const navigate = useNavigate();
+  
   return (
     <motion.div
       key="list"
@@ -68,7 +71,17 @@ export const IssueList = ({ issues, onEdit, onDelete }: IssueListProps) => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: index * 0.02 }}
-                    className="hover:bg-[#F4F5F7] cursor-pointer transition-colors group"
+                    className="hover:bg-[#F4F5F7] transition-colors group"
+                    onClick={(e) => {
+                      // Only navigate on Ctrl+Click (or Cmd+Click on Mac)
+                      if (e.ctrlKey || e.metaKey) {
+                        // Don't navigate if clicking on action buttons
+                        if ((e.target as HTMLElement).closest('button')) {
+                          return;
+                        }
+                        navigate(`/issues/${issue.id}`);
+                      }
+                    }}
                   >
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
@@ -78,7 +91,16 @@ export const IssueList = ({ issues, onEdit, onDelete }: IssueListProps) => {
                         />
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-[#0052CC] hover:underline">
+                            <span
+                              onClick={(e) => {
+                                // Only navigate on Ctrl+Click (or Cmd+Click on Mac)
+                                if (e.ctrlKey || e.metaKey) {
+                                  e.stopPropagation();
+                                  navigate(`/issues/${issue.id}`);
+                                }
+                              }}
+                              className="text-sm font-medium text-[#0052CC]"
+                            >
                               {issue.id}
                             </span>
                             <span className="text-sm text-[#172B4D]">

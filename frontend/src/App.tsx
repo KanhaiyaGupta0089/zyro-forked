@@ -35,6 +35,7 @@ import CreateProject from "@/pages/manager/projects/CreateProject";
 import ProjectDetails from "@/pages/manager/projects/ProjectDetails";
 import EditProject from "@/pages/manager/projects/EditProject";
 import Issue from "@/pages/manager/issue/Issue";
+import IssueDetail from "@/pages/manager/issue/IssueDetail";
 import OverviewTab from "@/pages/manager/projects/tabs/OverviewTab";
 import IssuesTab from "@/pages/manager/projects/tabs/IssuesTab";
 import KanbanTab from "@/pages/manager/projects/tabs/KanbanTab";
@@ -43,6 +44,7 @@ import TimelineTab from "@/pages/manager/projects/tabs/TimelineTab";
 import AnalyticsTab from "@/pages/manager/projects/tabs/AnalyticsTab";
 import SettingsTab from "@/pages/manager/projects/tabs/SettingsTab";
 import People from "@/pages/manager/people/People";
+import Workspace from "@/pages/manager/workspace/Workspace";
 
 import "./App.css";
 
@@ -147,18 +149,6 @@ function App() {
             }
           />
 
-          {/* ---------- HOME ---------- */}
-          <Route
-            path="/manager"
-            element={
-              <ProtectedRoute>
-                <HomeLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Home />} />
-          </Route>
-
           {/* ---------- ADMIN DASHBOARD ---------- */}
           <Route
             path="/admin"
@@ -173,7 +163,7 @@ function App() {
 
           {/* ---------- MANAGER DASHBOARD ---------- */}
           <Route
-            path="/manager"
+            path="/manager/*"
             element={
               <RoleProtectedRoute allowedRoles={['manager', 'admin']}>
                 <HomeLayout />
@@ -181,6 +171,7 @@ function App() {
             }
           >
             <Route index element={<ManagerPage />} />
+            <Route path="*" element={<ManagerPage />} />
           </Route>
 
           {/* ---------- EMPLOYEE DASHBOARD ---------- */}
@@ -230,6 +221,7 @@ function App() {
             }
           >
             <Route index element={<Issue />} />
+            <Route path=":id" element={<IssueDetail />} />
           </Route>
 
           {/* ---------- SETTINGS ---------- */}
@@ -260,6 +252,18 @@ function App() {
             }
           >
             <Route index element={<People />} />
+          </Route>
+
+          {/* ---------- WORKSPACE ---------- */}
+          <Route
+            path="/workspace"
+            element={
+              <ProtectedRoute>
+                <HomeLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Workspace />} />
           </Route>
 
           {/* ---------- FALLBACK ---------- */}

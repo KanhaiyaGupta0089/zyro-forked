@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, MoreVertical, Edit, Trash2 } from "lucide-react";
@@ -12,6 +13,7 @@ interface IssueCardProps {
 }
 
 export const IssueCard = ({ issue, onEdit, onDelete }: IssueCardProps) => {
+  const navigate = useNavigate();
   const {
     attributes,
     listeners,
@@ -48,6 +50,21 @@ export const IssueCard = ({ issue, onEdit, onDelete }: IssueCardProps) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showMenu]);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Only navigate on Ctrl+Click (or Cmd+Click on Mac)
+    if (e.ctrlKey || e.metaKey) {
+      // Don't navigate if clicking on menu button or menu
+      if (
+        (e.target as HTMLElement).closest('button') ||
+        (e.target as HTMLElement).closest('[role="menu"]')
+      ) {
+        return;
+      }
+      e.stopPropagation();
+      navigate(`/issues/${issue.id}`);
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -55,6 +72,7 @@ export const IssueCard = ({ issue, onEdit, onDelete }: IssueCardProps) => {
       className={`bg-white border border-[#DFE1E6] rounded p-2.5 cursor-grab active:cursor-grabbing hover:border-[#0052CC] hover:shadow-sm transition-all relative ${
         isDragging ? "shadow-md opacity-50" : ""
       }`}
+      onClick={handleCardClick}
     >
       <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
         <div className="flex items-start justify-between mb-2">
@@ -89,7 +107,10 @@ export const IssueCard = ({ issue, onEdit, onDelete }: IssueCardProps) => {
             </button>
 
             {showMenu && (
-              <div className="absolute right-0 top-6 bg-white border border-[#DFE1E6] rounded shadow-lg z-20 min-w-[120px]">
+              <div
+                role="menu"
+                className="absolute right-0 top-6 bg-white border border-[#DFE1E6] rounded shadow-lg z-20 min-w-[120px]"
+              >
                 <button
                   className="w-full px-3 py-2 text-left text-sm text-[#172B4D] hover:bg-[#F4F5F7] flex items-center gap-2"
                   onClick={(e) => {
@@ -117,9 +138,9 @@ export const IssueCard = ({ issue, onEdit, onDelete }: IssueCardProps) => {
           </div>
         </div>
 
-        <h4 className="text-sm text-[#172B4D] mb-2.5 font-normal leading-snug line-clamp-2">
+        <span className="text-sm text-[#172B4D] mb-2.5 font-normal leading-snug line-clamp-2">
           {issue.title}
-        </h4>
+        </span>
 
         <div className="flex items-center justify-between">
           <div

@@ -155,6 +155,28 @@ export const issueApi = {
 
     return res.data.data ?? [];
   },
+
+  /* ===============================
+     🔹 SUB-ISSUES
+  =============================== */
+
+  getSubIssues: async (issueId: number): Promise<Issue[]> => {
+    const res = await apiClient.get<ApiResponse<Issue[]>>(
+      `/issue/sub-issues/${issueId}`
+    );
+    return res.data.data ?? [];
+  },
+
+  /* ===============================
+     🔹 LOGS
+  =============================== */
+
+  getLogsByIssue: async (issueId: number): Promise<any[]> => {
+    const res = await apiClient.get<ApiResponse<any[]>>(
+      `/issue/logs/${issueId}`
+    );
+    return res.data.data ?? [];
+  },
 };
 
 /* ======================================================

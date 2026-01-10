@@ -16,6 +16,56 @@ import { RootState } from "@/redux/store";
 import { UIIssue } from "../hooks/useIssues";
 import { priorityMap } from "../constants/issueConfig";
 import { FileUploadZone } from "./FileUploadZone";
+import { userApi } from "@/services/api/userApi";
+import axios from "axios";
+
+// Helper function to parse time string like "2d 4h" to hours
+const parseTimeToHours = (timeString: string): number => {
+  if (!timeString || !timeString.trim()) return 0;
+  
+  let totalHours = 0;
+  const parts = timeString.trim().toLowerCase().split(/\s+/);
+  
+  for (const part of parts) {
+    // Match patterns like "2d", "4h", "30m"
+    const match = part.match(/^(\d+(?:\.\d+)?)([dhm])$/);
+    if (match) {
+      const value = parseFloat(match[1]);
+      const unit = match[2];
+      
+      switch (unit) {
+        case 'd':
+          totalHours += value * 8; // 1 day = 8 working hours
+          break;
+        case 'h':
+          totalHours += value;
+          break;
+        case 'm':
+          totalHours += value / 60; // 1 minute = 1/60 hour
+          break;
+      }
+    }
+  }
+  
+  return totalHours;
+};
+
+// Helper function to convert hours to "2d 4h" format
+const formatHoursToTimeString = (hours: number): string => {
+  if (!hours || hours === 0) return "";
+  
+  const days = Math.floor(hours / 8);
+  const remainingHours = hours % 8;
+  const minutes = Math.round((remainingHours % 1) * 60);
+  const hoursOnly = Math.floor(remainingHours);
+  
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hoursOnly > 0) parts.push(`${hoursOnly}h`);
+  if (minutes > 0 && days === 0) parts.push(`${minutes}m`); // Only show minutes if no days
+  
+  return parts.join(" ") || "";
+};
 
 interface IssueModalProps {
   isOpen: boolean;
@@ -44,6 +94,7 @@ export const IssueModal = ({
     projectId: 0,
     sprintId: 0,
     assignedTo: 0,
+    timeEstimate: "", // Changed to string for "2d 4h" format
   });
 
   const [sprints, setSprints] = useState<Array<{ id: number; name: string; project_id: number }>>([]);
@@ -58,9 +109,11 @@ export const IssueModal = ({
       const projectId = typeof issue.project.id === 'string' 
         ? parseInt(issue.project.id, 10) 
         : (issue.project.id as number);
-      const assignedToId = typeof issue.assignee.id === 'string' 
-        ? parseInt(issue.assignee.id, 10) 
-        : (issue.assignee.id as number);
+      const assignedToId = issue.assignee?.id
+        ? (typeof issue.assignee.id === 'string' 
+          ? parseInt(issue.assignee.id, 10) 
+          : (issue.assignee.id as number))
+        : 0;
       
       setFormData({
         name: issue.title,
@@ -72,6 +125,7 @@ export const IssueModal = ({
         projectId: projectId || 0,
         sprintId: 0,
         assignedTo: assignedToId || 0,
+        timeEstimate: issue.timeEstimate ? formatHoursToTimeString(issue.timeEstimate) : "",
       });
     } else {
       const defaultProjectId = projects[0]?.id 
@@ -88,23 +142,82 @@ export const IssueModal = ({
         projectId: defaultProjectId,
         sprintId: 0,
         assignedTo: 0,
+        timeEstimate: "",
       });
     }
   }, [issue, projects]);
 
+  // Fetch sprints for selected project
   useEffect(() => {
-    if (formData.projectId > 0) {
-      // TODO: Fetch sprints for the selected project
-      setSprints([]);
-    } else {
-      setSprints([]);
-    }
+    const fetchSprints = async () => {
+      if (formData.projectId > 0) {
+        try {
+          const apiClient = axios.create({
+            baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1",
+            withCredentials: true,
+          });
+          
+          // Add auth token
+          let token: string | null = null;
+          try {
+            const authState = localStorage.getItem("authState");
+            if (authState) {
+              token = JSON.parse(authState)?.token;
+            }
+          } catch {
+            token = null;
+          }
+          if (!token) {
+            token = localStorage.getItem("access_token");
+          }
+          if (token) {
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          }
+
+          const response = await apiClient.get<{ success: boolean; data: any[] }>("/sprint");
+          if (response.data.success && response.data.data) {
+            // Filter sprints by project_id
+            const projectSprints = response.data.data
+              .filter((sprint: any) => sprint.project_id === formData.projectId)
+              .map((sprint: any) => ({
+                id: sprint.id,
+                name: sprint.name || sprint.sprint_id || `Sprint ${sprint.id}`,
+                project_id: sprint.project_id,
+              }));
+            setSprints(projectSprints);
+          }
+        } catch (error) {
+          console.error("Error fetching sprints:", error);
+          setSprints([]);
+        }
+      } else {
+        setSprints([]);
+      }
+    };
+    fetchSprints();
   }, [formData.projectId]);
 
+  // Fetch users for selected project
   useEffect(() => {
-    // TODO: Fetch project team members for assignee selection
-    setUsers([]);
-  }, [formData.projectId]);
+    const fetchUsers = async () => {
+      if (formData.projectId > 0 && currentUser?.id) {
+        try {
+          // Use the get_all_users_under_manager_api endpoint
+          const teamUsers = await userApi.getTeamUsers(currentUser.id);
+          setUsers(teamUsers.map((user: any) => ({
+            id: user.id,
+            name: user.name || user.email,
+          })));
+        } catch (error) {
+          console.error("Error fetching users:", error);
+          setUsers([]);
+        }
+      } else {
+        setUsers([]);
+      }
+    };
+    fetchUsers();
+  }, [formData.projectId, currentUser?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +246,7 @@ export const IssueModal = ({
           priority: backendPriority,
           story_point: formData.storyPoints,
           assigned_to: formData.assignedTo > 0 ? formData.assignedTo : null,
+          time_estimate: formData.timeEstimate ? parseTimeToHours(formData.timeEstimate) : undefined,
         };
 
         await issueApi.update(issue.apiId, updateData);
@@ -149,6 +263,7 @@ export const IssueModal = ({
           project_id: formData.projectId,
           sprint_id: formData.sprintId > 0 ? formData.sprintId : null,
           assigned_to: formData.assignedTo > 0 ? formData.assignedTo : null,
+          time_estimate: formData.timeEstimate ? parseTimeToHours(formData.timeEstimate) : undefined,
         };
 
         await issueApi.create(createData);
@@ -274,6 +389,28 @@ export const IssueModal = ({
               </div>
             </div>
 
+            {/* Estimated Time */}
+            <div>
+              <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                Estimated Time
+              </label>
+              <input
+                type="text"
+                value={formData.timeEstimate}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    timeEstimate: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                placeholder="e.g., 2d 4h or 3h 30m"
+              />
+              <p className="text-xs text-[#6B778C] mt-1">
+                Format: days (d), hours (h), minutes (m). Example: "2d 4h" or "3h 30m"
+              </p>
+            </div>
+
             {/* Project and Assignee Row (Create Mode Only) */}
             {!issue && (
               <div className="grid grid-cols-2 gap-3">
@@ -360,31 +497,56 @@ export const IssueModal = ({
               </div>
             )}
 
-            {/* Status (Edit Mode Only) */}
+            {/* Status and Assignee (Edit Mode Only) */}
             {issue && (
-              <div>
-                <label className="block text-sm font-medium text-[#172B4D] mb-1">
-                  Status <span className="text-[#DE350B]">*</span>
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      status: e.target.value as IssueStatus,
-                    })
-                  }
-                  className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                  required
-                >
-                  <option value="todo">To Do</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="qa">QA</option>
-                  <option value="completed">Completed</option>
-                  <option value="hold">Hold</option>
-                  <option value="blocked">Blocked</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                    Status <span className="text-[#DE350B]">*</span>
+                  </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        status: e.target.value as IssueStatus,
+                      })
+                    }
+                    className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    required
+                  >
+                    <option value="todo">To Do</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="qa">QA</option>
+                    <option value="completed">Completed</option>
+                    <option value="hold">Hold</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#172B4D] mb-1">
+                    Assignee
+                  </label>
+                  <select
+                    value={formData.assignedTo || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        assignedTo: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
 
