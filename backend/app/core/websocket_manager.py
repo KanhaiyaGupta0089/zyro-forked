@@ -38,21 +38,32 @@ class ConnectionManager:
     
     async def _start_redis_listener(self, project_id: int):
         """Start listening to Redis Pub/Sub for a project"""
-        await async_redis_client.ping()
-        Logger.info(f"Redis connection OK for project {project_id}")
+        try:
+            await async_redis_client.ping()
+            Logger.info(f"Redis connection OK for project {project_id}")
+        except Exception as e:
+            Logger.error(f"Redis ping failed for project {project_id}: {e}")
+            # Don't raise - allow WebSocket to continue without Redis
+            return
         
-        pubsub = async_redis_client.pubsub()
-        channel_name = f"project:{project_id}:updates"
-        Logger.info(f"Subscribing to Redis channel: {channel_name}")
-        await pubsub.subscribe(channel_name)
-        
-        self.pubsubs[project_id] = pubsub
-        
-        # Start background task to listen for messages
-        task = asyncio.create_task(self._redis_listener(project_id, pubsub))
-        self.listener_tasks[project_id] = task
-        
-        Logger.info(f"Started Redis listener task for project {project_id}")
+        try:
+            pubsub = async_redis_client.pubsub()
+            channel_name = f"project:{project_id}:updates"
+            Logger.info(f"Subscribing to Redis channel: {channel_name}")
+            await pubsub.subscribe(channel_name)
+            
+            self.pubsubs[project_id] = pubsub
+            
+            # Start background task to listen for messages
+            task = asyncio.create_task(self._redis_listener(project_id, pubsub))
+            self.listener_tasks[project_id] = task
+            
+            Logger.info(f"Started Redis listener task for project {project_id}")
+        except Exception as e:
+            Logger.error(f"Error starting Redis listener for project {project_id}: {e}")
+            import traceback
+            Logger.error(f"Redis listener traceback: {traceback.format_exc()}")
+            # Don't raise - allow WebSocket to continue without Redis
     
     async def _redis_listener(self, project_id: int, pubsub):
         """Listen to Redis messages and broadcast to WebSocket connections"""
@@ -63,23 +74,36 @@ class ConnectionManager:
                     message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                     if message and message['type'] == 'message':
                         data = json.loads(message['data'])
-                        Logger.info(f"Received Redis message for project {project_id}: {data.get('type', 'unknown')}")
+                        Logger.info(f"Received Redis message for project {project_id}: {data.get('type', 'unknown')}, issue_id: {data.get('data', {}).get('id', 'N/A')}")
                         await self.broadcast_to_project(project_id, data)
                         connection_count = len(self.active_connections.get(project_id, set()))
-                        Logger.info(f"Broadcasted message to {connection_count} WebSocket connections")
+                        Logger.info(f"Broadcasted message to {connection_count} WebSocket connections for project {project_id}")
                 except asyncio.TimeoutError:
                     # Timeout is normal, continue waiting
                     continue
                 except json.JSONDecodeError as e:
                     Logger.error(f"Error decoding Redis message: {e}, raw data: {message.get('data', '') if message else 'N/A'}")
+                except Exception as e:
+                    Logger.error(f"Error in Redis listener loop for project {project_id}: {e}")
+                    import traceback
+                    Logger.error(f"Redis listener error traceback: {traceback.format_exc()}")
+                    # Continue the loop to keep listening
+                    continue
                 except asyncio.CancelledError:
                     raise
         except asyncio.CancelledError:
             Logger.info(f"Redis listener for project {project_id} cancelled")
+        except Exception as e:
+            Logger.error(f"Fatal error in Redis listener for project {project_id}: {e}")
+            import traceback
+            Logger.error(f"Redis listener fatal error traceback: {traceback.format_exc()}")
         finally:
-            await pubsub.unsubscribe()
-            await pubsub.close()
-            Logger.info(f"Redis listener closed for project {project_id}")
+            try:
+                await pubsub.unsubscribe()
+                await pubsub.close()
+                Logger.info(f"Redis listener closed for project {project_id}")
+            except Exception as e:
+                Logger.error(f"Error closing Redis listener for project {project_id}: {e}")
     
     def disconnect(self, websocket: WebSocket):
         if websocket in self.connection_info:

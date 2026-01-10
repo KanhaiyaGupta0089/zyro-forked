@@ -282,10 +282,10 @@ export const useIssues = () => {
 
         // Show notification for status updates (drag-drop or form updates)
         if (updatedIssueData.status) {
-          if (message.data?.updated_by && message.data.updated_by.name) {
-            const updatedByName = message.data.updated_by.name;
+          if (updatedIssueData.updated_by && updatedIssueData.updated_by.name) {
+            const updatedByName = updatedIssueData.updated_by.name;
             const currentUserId = currentUser?.id;
-            const updatedById = message.data.updated_by.id;
+            const updatedById = updatedIssueData.updated_by.id;
             
             // Show notification if updated by someone else, or show for all status changes
             if (currentUserId !== updatedById) {

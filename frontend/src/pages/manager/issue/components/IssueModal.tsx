@@ -125,7 +125,7 @@ export const IssueModal = ({
         projectId: projectId || 0,
         sprintId: 0,
         assignedTo: assignedToId || 0,
-        timeEstimate: issue.timeEstimate ? formatHoursToTimeString(issue.timeEstimate) : "",
+        timeEstimate: (issue as any).timeEstimate ? formatHoursToTimeString((issue as any).timeEstimate) : "",
       });
     } else {
       const defaultProjectId = projects[0]?.id 
@@ -204,7 +204,7 @@ export const IssueModal = ({
         try {
           // Only fetch team users if user is manager or admin
           if (currentUser.role === 'manager' || currentUser.role === 'admin') {
-            const teamUsers = await userApi.getTeamUsers(currentUser.id);
+            const teamUsers = await userApi.getTeamUsers(typeof currentUser.id === 'string' ? parseInt(currentUser.id, 10) : currentUser.id);
             setUsers(teamUsers.map((user: any) => ({
               id: user.id,
               name: user.name || user.email,
@@ -249,16 +249,22 @@ export const IssueModal = ({
 
       if (issue?.apiId) {
         // Edit mode
-        const updateData: UpdateIssueRequest = {
-          name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
-          type: formData.type,
-          status: formData.status,
-          priority: backendPriority,
-          story_point: formData.storyPoints,
-          assigned_to: formData.assignedTo > 0 ? formData.assignedTo : null,
-          time_estimate: formData.timeEstimate ? parseTimeToHours(formData.timeEstimate) : undefined,
-        };
+        // For employees, only allow status updates
+        const isEmployee = currentUser?.role === 'employee';
+        const updateData: UpdateIssueRequest = isEmployee
+          ? {
+              status: formData.status,
+            }
+          : {
+              name: formData.name.trim(),
+              description: formData.description.trim() || undefined,
+              type: formData.type,
+              status: formData.status,
+              priority: backendPriority,
+              story_point: formData.storyPoints,
+              assigned_to: formData.assignedTo > 0 ? formData.assignedTo : null,
+              time_estimate: formData.timeEstimate ? parseTimeToHours(formData.timeEstimate) : undefined,
+            };
 
         await issueApi.update(issue.apiId, updateData);
         toast.success("Issue updated successfully");
@@ -330,7 +336,7 @@ export const IssueModal = ({
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                disabled={issue && currentUser?.role === 'employee'}
+                disabled={!!(issue && currentUser?.role === 'employee')}
                 className={`w-full px-3 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
                   issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
                 }`}
@@ -350,7 +356,7 @@ export const IssueModal = ({
                   onChange={(e) =>
                     setFormData({ ...formData, type: e.target.value as IssueType })
                   }
-                  disabled={issue && currentUser?.role === 'employee'}
+                  disabled={!!(issue && currentUser?.role === 'employee')}
                   className={`w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
                     issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
                   }`}
@@ -377,7 +383,7 @@ export const IssueModal = ({
                       priority: e.target.value as "low" | "medium" | "high" | "critical",
                     })
                   }
-                  disabled={issue && currentUser?.role === 'employee'}
+                  disabled={!!(issue && currentUser?.role === 'employee')}
                   className={`w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
                     issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
                   }`}
@@ -403,7 +409,7 @@ export const IssueModal = ({
                       storyPoints: parseInt(e.target.value) || 0,
                     })
                   }
-                  disabled={issue && currentUser?.role === 'employee'}
+                  disabled={!!(issue && currentUser?.role === 'employee')}
                   className={`w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
                     issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
                   }`}
@@ -426,7 +432,7 @@ export const IssueModal = ({
                     timeEstimate: e.target.value,
                   })
                 }
-                disabled={issue && currentUser?.role === 'employee'}
+                disabled={!!(issue && currentUser?.role === 'employee')}
                 className={`w-full px-3 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
                   issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
                 }`}
@@ -563,7 +569,7 @@ export const IssueModal = ({
                         assignedTo: parseInt(e.target.value) || 0,
                       })
                     }
-                    disabled={currentUser?.role === 'employee'}
+                    disabled={!!(currentUser?.role === 'employee')}
                     className={`w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
                       currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
                     }`}
@@ -624,7 +630,7 @@ export const IssueModal = ({
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
-                    disabled={issue && currentUser?.role === 'employee'}
+                    disabled={!!(issue && currentUser?.role === 'employee')}
                     className={`w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
                       issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
                     }`}
