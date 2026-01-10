@@ -63,13 +63,12 @@ async def get_issue_by_id(issue_id:int,session:AsyncSession) -> Issue:
     """
     Get an issue by id
     """
-    # issue_stmt = select(Issue).where(Issue.id == issue_id).options(
-    #     selectinload(Issue.assignee),
-    #     selectinload(Issue.reporter),
-    #     selectinload(Issue.project),
-    #     selectinload(Issue.sprint)
-    # )
-    issue_stmt = select(Issue).where(Issue.id == issue_id)
+    issue_stmt = select(Issue).where(Issue.id == issue_id).options(
+        selectinload(Issue.sprint),
+        selectinload(Issue.project),
+        selectinload(Issue.assignee),
+        selectinload(Issue.reporter),
+    )
 
     result = await session.execute(issue_stmt)
     issue = result.scalar_one_or_none()

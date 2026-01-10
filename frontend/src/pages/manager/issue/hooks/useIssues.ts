@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import { issueApi } from "@/services/api/issueApi";
 import { projectService } from "@/services/api/projectApi";
@@ -8,6 +8,7 @@ import {
   Project,
 } from "@/services/api/types";
 import { ApiError } from "@/types/api";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 export interface UIIssue {
   id: string;
@@ -223,10 +224,114 @@ export const useIssues = () => {
     loadData();
   }, [loadData]);
 
+  // Get unique project IDs from issues for WebSocket connections
+  const uniqueProjectIds = useMemo(() => {
+    const projectIds = new Set<number>();
+    issues.forEach((issue) => {
+      if (issue.project.id) {
+        projectIds.add(issue.project.id);
+      }
+    });
+    return Array.from(projectIds);
+  }, [issues]);
+
+  // Handle WebSocket messages for real-time updates
+  const handleWebSocketMessage = useCallback(
+    (message: any) => {
+      console.log("Received WebSocket message:", message);
+      console.log("Message type:", message.type);
+      
+      if (message.type === "issue_updated") {
+        const updatedIssueData = message.data;
+        console.log("Processing issue_updated:", updatedIssueData);
+        
+        setIssues((prevIssues) => {
+          return prevIssues.map((issue) => {
+            // Match by apiId
+            if (issue.apiId === updatedIssueData.id) {
+              // Find the project for this issue
+              const project = projects.find(
+                (p) => p.id === updatedIssueData.project_id
+              );
+              
+              // Transform the updated issue to UI format
+              const apiIssue: ApiIssue = {
+                id: updatedIssueData.id,
+                name: updatedIssueData.name,
+                status: updatedIssueData.status,
+                priority: updatedIssueData.priority,
+                type: updatedIssueData.type || issue.type,
+                assigned_to: updatedIssueData.assigned_to,
+                project_id: updatedIssueData.project_id,
+                created_at: updatedIssueData.created_at || issue.created,
+                updated_at: updatedIssueData.updated_at,
+                story_point: updatedIssueData.story_point || issue.storyPoints,
+                assignee: updatedIssueData.assignee || issue.assignee,
+                reporter: updatedIssueData.reporter || issue.reporter,
+                project: project || issue.project,
+              };
+              
+              return transformIssueToUI(apiIssue, project);
+            }
+            return issue;
+          });
+        });
+
+        // Show notification if updated by someone else
+        if (message.updated_by && message.updated_by.name) {
+          toast.success(
+            `Issue ${updatedIssueData.id} updated by ${message.updated_by.name}`,
+            { duration: 3000 }
+          );
+        }
+      } else if (message.type === "issue_created") {
+        // Reload data to get the new issue with all details
+        loadData();
+        toast.success("New issue created", { duration: 3000 });
+      } else if (message.type === "issue_deleted") {
+        const deletedIssueId = message.data?.issue_id;
+        if (deletedIssueId) {
+          setIssues((prevIssues) =>
+            prevIssues.filter((issue) => issue.apiId !== deletedIssueId)
+          );
+          toast.success("Issue deleted", { duration: 3000 });
+        }
+      } else {
+        console.log("Unhandled WebSocket message type:", message.type, message);
+      }
+    },
+    [projects, loadData]
+  );
+
+  // Connect WebSocket for the first project (or primary project)
+  // Note: For multiple projects, you may want to connect to all of them
+  // For now, we connect to the first project that has issues
+  const primaryProjectId = uniqueProjectIds.length > 0 ? uniqueProjectIds[0] : null;
+
+  useWebSocket({
+    projectId: primaryProjectId,
+    onMessage: handleWebSocketMessage,
+    onError: (error) => {
+      console.error("WebSocket error:", error);
+    },
+    onConnect: () => {
+      console.log(`Connected to WebSocket for project ${primaryProjectId}`);
+    },
+    onDisconnect: () => {
+      console.log(`Disconnected from WebSocket for project ${primaryProjectId}`);
+    },
+  });
+
   const updateIssueStatus = useCallback(
     async (issueId: string, newStatus: IssueStatus) => {
       const issue = issues.find((i) => i.id === issueId);
-      if (!issue || !issue.apiId) return false;
+      if (!issue || !issue.apiId) {
+        console.error("Issue not found or missing apiId:", issueId, issue);
+        return false;
+      }
+
+      // Store original state for rollback
+      const originalIssues = [...issues];
 
       // Optimistically update the UI
       const updatedIssues = issues.map((i) =>
@@ -236,12 +341,21 @@ export const useIssues = () => {
 
       try {
         await issueApi.update(issue.apiId, { status: newStatus });
-        toast.success("Issue status updated successfully");
+        // Don't show success toast here - WebSocket will handle the update notification
+        // toast.success("Issue status updated successfully");
         return true;
-      } catch (error) {
+      } catch (error: any) {
         // Revert the optimistic update on failure
-        setIssues(issues);
-        toast.error("Failed to update issue status");
+        setIssues(originalIssues);
+        
+        // Show detailed error message
+        const errorMessage = 
+          error?.response?.data?.message || 
+          error?.message || 
+          "Failed to update issue status";
+        
+        console.error("Error updating issue status:", error);
+        toast.error(errorMessage);
         return false;
       }
     },
