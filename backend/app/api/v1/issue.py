@@ -191,7 +191,16 @@ async def update_issue_api(
     
     # publish issue update to redis pub/sub
     print(f"[ISSUE UPDATE] Publishing issue update to Redis for project {updated_issue.project_id}, issue {updated_issue.id}")
-    await redis_publisher.publish_issue_update(project_id=updated_issue.project_id, issue_data=issue_dict)
+    # Add updated_by information for notifications
+    issue_dict_with_user = {
+        **issue_dict,
+        "updated_by": {
+            "id": current_user.id,
+            "name": current_user.name,
+            "email": current_user.email
+        }
+    }
+    await redis_publisher.publish_issue_update(project_id=updated_issue.project_id, issue_data=issue_dict_with_user)
     print(f"[ISSUE UPDATE] Published issue update to Redis for project {updated_issue.project_id}, issue {updated_issue.id}")
 
     # Send status update email if status changed

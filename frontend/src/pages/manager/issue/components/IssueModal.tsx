@@ -202,22 +202,33 @@ export const IssueModal = ({
     const fetchUsers = async () => {
       if (formData.projectId > 0 && currentUser?.id) {
         try {
-          // Use the get_all_users_under_manager_api endpoint
-          const teamUsers = await userApi.getTeamUsers(currentUser.id);
-          setUsers(teamUsers.map((user: any) => ({
-            id: user.id,
-            name: user.name || user.email,
-          })));
-        } catch (error) {
-          console.error("Error fetching users:", error);
-          setUsers([]);
+          // Only fetch team users if user is manager or admin
+          if (currentUser.role === 'manager' || currentUser.role === 'admin') {
+            const teamUsers = await userApi.getTeamUsers(currentUser.id);
+            setUsers(teamUsers.map((user: any) => ({
+              id: user.id,
+              name: user.name || user.email,
+            })));
+          } else {
+            // For employees, skip fetching team users
+            setUsers([]);
+          }
+        } catch (error: any) {
+          // Handle permission errors gracefully
+          if (error?.response?.status === 403 || error?.response?.status === 401) {
+            console.log("User doesn't have permission to fetch team users");
+            setUsers([]);
+          } else {
+            console.error("Error fetching users:", error);
+            setUsers([]);
+          }
         }
       } else {
         setUsers([]);
       }
     };
     fetchUsers();
-  }, [formData.projectId, currentUser?.id]);
+  }, [formData.projectId, currentUser?.id, currentUser?.role]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -319,7 +330,10 @@ export const IssueModal = ({
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                className="w-full px-3 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                disabled={issue && currentUser?.role === 'employee'}
+                className={`w-full px-3 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
+                  issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
+                }`}
                 placeholder="Enter issue title"
                 required
               />
@@ -336,7 +350,10 @@ export const IssueModal = ({
                   onChange={(e) =>
                     setFormData({ ...formData, type: e.target.value as IssueType })
                   }
-                  className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  disabled={issue && currentUser?.role === 'employee'}
+                  className={`w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
+                    issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
+                  }`}
                   required
                 >
                   <option value="task">Task</option>
@@ -360,7 +377,10 @@ export const IssueModal = ({
                       priority: e.target.value as "low" | "medium" | "high" | "critical",
                     })
                   }
-                  className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  disabled={issue && currentUser?.role === 'employee'}
+                  className={`w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
+                    issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
+                  }`}
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -383,7 +403,10 @@ export const IssueModal = ({
                       storyPoints: parseInt(e.target.value) || 0,
                     })
                   }
-                  className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  disabled={issue && currentUser?.role === 'employee'}
+                  className={`w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
+                    issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
+                  }`}
                   placeholder="0"
                 />
               </div>
@@ -403,7 +426,10 @@ export const IssueModal = ({
                     timeEstimate: e.target.value,
                   })
                 }
-                className="w-full px-3 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                disabled={issue && currentUser?.role === 'employee'}
+                className={`w-full px-3 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
+                  issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
+                }`}
                 placeholder="e.g., 2d 4h or 3h 30m"
               />
               <p className="text-xs text-[#6B778C] mt-1">
@@ -537,7 +563,10 @@ export const IssueModal = ({
                         assignedTo: parseInt(e.target.value) || 0,
                       })
                     }
-                    className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    disabled={currentUser?.role === 'employee'}
+                    className={`w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
+                      currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
+                    }`}
                   >
                     <option value="">Unassigned</option>
                     {users.map((user) => (
@@ -595,7 +624,10 @@ export const IssueModal = ({
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
-                    className="w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    disabled={issue && currentUser?.role === 'employee'}
+                    className={`w-full px-2 py-1.5 border border-[#DFE1E6] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent ${
+                      issue && currentUser?.role === 'employee' ? 'bg-[#F4F5F7] text-[#6B778C] cursor-not-allowed' : ''
+                    }`}
                     placeholder="Enter issue description"
                     rows={3}
                   />

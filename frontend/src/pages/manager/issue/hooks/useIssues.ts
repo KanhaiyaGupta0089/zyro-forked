@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import { issueApi } from "@/services/api/issueApi";
 import { projectService } from "@/services/api/projectApi";
@@ -9,6 +10,7 @@ import {
 } from "@/services/api/types";
 import { ApiError } from "@/types/api";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { RootState } from "@/redux/store";
 
 export interface UIIssue {
   id: string;
@@ -148,6 +150,7 @@ const setCacheToStorage = (data: CacheData) => {
 export const useIssues = () => {
   // Initialize with cached data from local storage
   const initialCachedData = cachedData || getCacheFromStorage();
+  const currentUser = useSelector((state: RootState) => state.auth.user);
   
   const [issues, setIssues] = useState<UIIssue[]>(initialCachedData ? initialCachedData.issues : []);
   const [projects, setProjects] = useState<Project[]>(initialCachedData ? initialCachedData.projects : []);
@@ -277,12 +280,33 @@ export const useIssues = () => {
           });
         });
 
-        // Show notification if updated by someone else
-        if (message.updated_by && message.updated_by.name) {
-          toast.success(
-            `Issue ${updatedIssueData.id} updated by ${message.updated_by.name}`,
-            { duration: 3000 }
-          );
+        // Show notification for status updates (drag-drop or form updates)
+        if (updatedIssueData.status) {
+          if (message.data?.updated_by && message.data.updated_by.name) {
+            const updatedByName = message.data.updated_by.name;
+            const currentUserId = currentUser?.id;
+            const updatedById = message.data.updated_by.id;
+            
+            // Show notification if updated by someone else, or show for all status changes
+            if (currentUserId !== updatedById) {
+              toast.success(
+                `Issue ${updatedIssueData.id} updated by ${updatedByName}`,
+                { duration: 3000 }
+              );
+            } else {
+              // Show notification for own updates too (for drag-drop feedback)
+              toast.success(
+                `Issue ${updatedIssueData.id} status updated to ${updatedIssueData.status}`,
+                { duration: 2000 }
+              );
+            }
+          } else {
+            // Fallback: show notification for status updates even without updated_by
+            toast.success(
+              `Issue ${updatedIssueData.id} status updated`,
+              { duration: 3000 }
+            );
+          }
         }
       } else if (message.type === "issue_created") {
         // Reload data to get the new issue with all details
@@ -300,7 +324,7 @@ export const useIssues = () => {
         console.log("Unhandled WebSocket message type:", message.type, message);
       }
     },
-    [projects, loadData]
+    [projects, loadData, currentUser]
   );
 
   // Connect WebSocket for the first project (or primary project)
