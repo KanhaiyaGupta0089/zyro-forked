@@ -16,17 +16,13 @@ interface VelocityChartProps {
 
 export const VelocityChart = memo<VelocityChartProps>(
   ({ data, height = 200 }) => {
-    console.log("VelocityChart received data:", data);
-    
     const chartData = useMemo(() => {
       if (data.length === 0) {
-        console.log("VelocityChart: No data provided");
         return null;
       }
 
       const maxValue = Math.max(...data.map((d) => d.totalIssues), 1);
       const barWidth = 100 / data.length;
-      console.log("VelocityChart computed:", { maxValue, barWidth, barsCount: data.length });
 
       return {
         maxValue,

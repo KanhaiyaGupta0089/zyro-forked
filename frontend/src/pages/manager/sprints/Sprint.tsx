@@ -18,7 +18,6 @@ import { toast } from "react-hot-toast";
 
 const SprintPage = () => {
   const location = useLocation();
-  console.log("SprintPage component rendered at:", location.pathname);
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<"board" | "list">("board");
   const [searchQuery, setSearchQuery] = useState("");

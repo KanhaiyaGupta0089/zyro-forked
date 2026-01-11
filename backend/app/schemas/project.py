@@ -18,4 +18,10 @@ class ProjectUpdateRequest(BaseModel):
     end_date: Optional[date] = None
     status: Optional[ProjectStatus] = None
     organization_id: Optional[int] = None
+    data: Optional[Dict[str, Any]] = None
+
+
+class GitHubRepoLinkRequest(BaseModel):
+    """Request to link a GitHub repository to a project"""
+    github_repo: str  # Format: owner/repo (e.g., "username/repository")
 

@@ -128,6 +128,12 @@ export interface Project {
   created_at: string;
   updated_at: string;
 
+  /* Additional data (JSONB field) */
+  data?: {
+    github_repo?: string;
+    [key: string]: any;
+  };
+
   /* UI computed */
   teamMembers?: number;
   progress: number;

@@ -23,6 +23,9 @@ import {
   Copy,
   Link as LinkIcon,
   Activity,
+  Paperclip,
+  Share2,
+  Download,
 } from "lucide-react";
 import { issueApi } from "@/services/api/issueApi";
 import { logsApi, Log } from "@/services/api/logsApi";
@@ -30,6 +33,10 @@ import { toast } from "react-hot-toast";
 import { IssueStatus, IssuePriority, Issue as ApiIssue } from "@/services/api/types";
 import { statuses, priorities, types } from "./constants/issueConfig";
 import { RootState } from "@/redux/store";
+import { useAttachments } from "./hooks/useAttachments";
+import { AttachmentsList } from "./components/AttachmentsList";
+import { FileUploadZone } from "./components/FileUploadZone";
+import { Attachment } from "@/services/api/attachmentApi";
 
 interface ActivityLog {
   id: number;
@@ -61,6 +68,8 @@ const IssueDetail = () => {
   const [subIssues, setSubIssues] = useState<SubIssue[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [expandedSubIssues, setExpandedSubIssues] = useState(true);
+  const [showAttachments, setShowAttachments] = useState(true);
+  const [viewingAttachment, setViewingAttachment] = useState<Attachment | null>(null);
   
   // Editing states
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -71,6 +80,20 @@ const IssueDetail = () => {
     description: "",
     hours: 0,
     date: new Date().toISOString().split("T")[0], // YYYY-MM-DD format
+  });
+
+  // Attachments hook
+  const {
+    attachments,
+    loading: attachmentsLoading,
+    isUploading,
+    uploadAttachment,
+    deleteAttachment,
+    downloadAttachment,
+    loadAttachments,
+  } = useAttachments({
+    issueId: issue?.id,
+    autoLoad: true,
   });
 
   // Fetch issue details
@@ -265,6 +288,38 @@ const IssueDetail = () => {
     } catch (err: any) {
       console.error("Error deleting log:", err);
       toast.error(err?.response?.data?.message || "Failed to delete log");
+    }
+  };
+
+  // Attachment handlers
+  const handleViewAttachment = (attachment: Attachment) => {
+    setViewingAttachment(attachment);
+  };
+
+  const handleShareAttachment = async (attachment: Attachment) => {
+    try {
+      const url = attachment.file_url;
+      if (navigator.share) {
+        await navigator.share({
+          title: attachment.file_name,
+          url: url,
+        });
+        toast.success("Shared successfully");
+      } else {
+        // Fallback: copy to clipboard
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied to clipboard");
+      }
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        // Fallback: copy to clipboard
+        try {
+          await navigator.clipboard.writeText(attachment.file_url);
+          toast.success("Link copied to clipboard");
+        } catch (clipboardErr) {
+          toast.error("Failed to share attachment");
+        }
+      }
     }
   };
 
@@ -478,6 +533,61 @@ const IssueDetail = () => {
                   {issue.description || (
                     <span className="text-[#6B778C] italic">No description provided</span>
                   )}
+                </div>
+              )}
+            </div>
+
+            {/* Attachments */}
+            <div className="bg-white rounded border border-[#DFE1E6] p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowAttachments(!showAttachments)}
+                    className="text-[#6B778C] hover:text-[#172B4D]"
+                  >
+                    {showAttachments ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5" />
+                    )}
+                  </button>
+                  <Paperclip className="w-5 h-5 text-[#6B778C]" />
+                  <h3 className="text-base font-semibold text-[#172B4D]">
+                    Attachments ({attachments.length})
+                  </h3>
+                </div>
+              </div>
+              {showAttachments && (
+                <div className="space-y-4">
+                  {/* Upload Zone */}
+                  <FileUploadZone
+                    onFileSelect={async (file) => {
+                      try {
+                        await uploadAttachment(file);
+                        await loadAttachments();
+                      } catch (error) {
+                        // Error already handled in hook
+                      }
+                    }}
+                    isUploading={isUploading}
+                  />
+
+                  {/* Attachments List */}
+                  <AttachmentsList
+                    attachments={attachments}
+                    onView={handleViewAttachment}
+                    onShare={handleShareAttachment}
+                    onDownload={downloadAttachment}
+                    onDelete={async (attachmentId) => {
+                      try {
+                        await deleteAttachment(attachmentId);
+                        await loadAttachments();
+                      } catch (error) {
+                        // Error already handled in hook
+                      }
+                    }}
+                    isLoading={attachmentsLoading}
+                  />
                 </div>
               )}
             </div>
@@ -819,9 +929,75 @@ const IssueDetail = () => {
                 </button>
               </div>
             </div>
+
           </div>
         </div>
       </div>
+
+      {/* Attachment View Modal */}
+      {viewingAttachment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-[#DFE1E6]">
+              <h3 className="text-lg font-semibold text-[#172B4D] truncate">
+                {viewingAttachment.file_name}
+              </h3>
+              <button
+                onClick={() => setViewingAttachment(null)}
+                className="p-1 hover:bg-[#F4F5F7] rounded"
+              >
+                <X className="w-5 h-5 text-[#6B778C]" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {viewingAttachment.file_type.startsWith('image/') ? (
+                <img
+                  src={viewingAttachment.file_url}
+                  alt={viewingAttachment.file_name}
+                  className="max-w-full max-h-[70vh] mx-auto"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <FileText className="w-16 h-16 text-[#C1C7D0] mb-4" />
+                  <p className="text-sm text-[#6B778C] mb-4">
+                    Preview not available for this file type
+                  </p>
+                  <a
+                    href={viewingAttachment.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 bg-[#0052CC] text-white rounded hover:bg-[#0065FF] transition-colors text-sm font-medium"
+                  >
+                    Open in New Tab
+                  </a>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-[#DFE1E6]">
+              <button
+                onClick={() => handleShareAttachment(viewingAttachment)}
+                className="px-3 py-1.5 text-sm text-[#172B4D] hover:bg-[#F4F5F7] rounded transition-colors flex items-center gap-2"
+              >
+                <Share2 className="w-4 h-4" />
+                Share
+              </button>
+              <button
+                onClick={() => {
+                  downloadAttachment(viewingAttachment.id, viewingAttachment.file_name);
+                }}
+                className="px-3 py-1.5 bg-[#0052CC] text-white rounded hover:bg-[#0065FF] transition-colors text-sm font-medium flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Log Modal */}
       {showLogModal && (

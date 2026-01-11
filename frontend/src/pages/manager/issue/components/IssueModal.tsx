@@ -17,6 +17,7 @@ import { UIIssue } from "../hooks/useIssues";
 import { priorityMap } from "../constants/issueConfig";
 import { FileUploadZone } from "./FileUploadZone";
 import { userApi } from "@/services/api/userApi";
+import { attachmentApi } from "@/services/api/attachmentApi";
 import axios from "axios";
 
 // Helper function to parse time string like "2d 4h" to hours
@@ -268,6 +269,24 @@ export const IssueModal = ({
 
         await issueApi.update(issue.apiId, updateData);
         toast.success("Issue updated successfully");
+
+        // Upload pending attachments in edit mode
+        if (pendingFiles.length > 0) {
+          const uploadToast = toast.loading(`Uploading ${pendingFiles.length} file(s)...`);
+          
+          try {
+            for (const file of pendingFiles) {
+              await attachmentApi.upload(issue.apiId, file);
+            }
+            toast.dismiss(uploadToast);
+            toast.success("All attachments uploaded successfully");
+            setPendingFiles([]);
+          } catch (uploadError: any) {
+            toast.dismiss(uploadToast);
+            toast.error(`Failed to upload some attachments: ${uploadError.message || "Unknown error"}`);
+            // Don't fail the whole operation if attachments fail
+          }
+        }
       } else {
         // Create mode
         const createData: CreateIssueRequest = {
@@ -283,8 +302,26 @@ export const IssueModal = ({
           time_estimate: formData.timeEstimate ? parseTimeToHours(formData.timeEstimate) : undefined,
         };
 
-        await issueApi.create(createData);
+        const createdIssue = await issueApi.create(createData);
         toast.success("Issue created successfully");
+
+        // Upload pending attachments after issue creation
+        if (pendingFiles.length > 0 && createdIssue?.id) {
+          const uploadToast = toast.loading(`Uploading ${pendingFiles.length} file(s)...`);
+          
+          try {
+            for (const file of pendingFiles) {
+              await attachmentApi.upload(createdIssue.id, file);
+            }
+            toast.dismiss(uploadToast);
+            toast.success("All attachments uploaded successfully");
+            setPendingFiles([]);
+          } catch (uploadError: any) {
+            toast.dismiss(uploadToast);
+            toast.error(`Failed to upload some attachments: ${uploadError.message || "Unknown error"}`);
+            // Don't fail the whole operation if attachments fail
+          }
+        }
       }
 
       onSave();

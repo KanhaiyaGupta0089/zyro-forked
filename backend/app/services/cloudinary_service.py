@@ -2,7 +2,7 @@ import cloudinary
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 from dataclasses import dataclass
-from cloudinary.exceptions import CloudinaryError
+from cloudinary.exceptions import Error as CloudinaryError
 from fastapi import File, UploadFile
 
 from app.core.conf import CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET

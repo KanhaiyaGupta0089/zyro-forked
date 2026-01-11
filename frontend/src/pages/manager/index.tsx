@@ -18,7 +18,6 @@ import SecuritySettings from './settings/SecuritySettings';
 
 const ManagerPage = () => {
   const location = useLocation();
-  console.log("ManagerPage component rendered, current path:", location.pathname);
   return (
     <Routes>
       {/* Sprint routes - must be before index to avoid matching issues */}

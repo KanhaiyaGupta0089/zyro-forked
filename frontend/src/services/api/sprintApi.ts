@@ -70,7 +70,6 @@ export const sprintApi = {
   getAll: async (): Promise<Sprint[]> => {
     try {
       const res = await apiClient.get<ApiResponse<Sprint[]>>("/sprint");
-      console.log("Sprint API Response:", res.data);
       return res.data.data ?? [];
     } catch (error: any) {
       console.error("Sprint API Error:", error.response?.data || error.message);

@@ -120,6 +120,21 @@ export const projectApi = {
     );
     return res.data.data;
   },
+
+  /* ===============================
+     🔹 GITHUB INTEGRATION
+  =============================== */
+
+  linkGitHubRepo: async (
+    projectId: number,
+    githubRepo: string
+  ): Promise<{ project_id: number; github_repo: string }> => {
+    const res = await apiClient.post<ApiResponse<{ project_id: number; github_repo: string }>>(
+      `/project/${projectId}/link-github`,
+      { github_repo: githubRepo }
+    );
+    return res.data.data;
+  },
 };
 
 /* ======================================================

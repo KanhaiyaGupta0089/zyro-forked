@@ -58,23 +58,6 @@ const SprintDetail = () => {
           sprintApi.getById(Number(id)),
           sprintApi.getAll(),
         ]);
-        console.log("Fetched sprint data:", {
-          sprint: sprintData,
-          hasIssues: !!sprintData.issues,
-          issuesCount: sprintData.issues?.length || 0,
-          start_date: sprintData.start_date,
-          end_date: sprintData.end_date,
-        });
-        console.log("Fetched all sprints:", {
-          count: allSprintsData.length,
-          sprints: allSprintsData.map(s => ({
-            id: s.id,
-            name: s.name,
-            status: s.status,
-            hasIssues: !!s.issues,
-            issuesCount: s.issues?.length || 0,
-          })),
-        });
         setSprint(sprintData);
         setAllSprints(allSprintsData);
       } catch (error) {

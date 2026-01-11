@@ -18,13 +18,6 @@ interface SprintAnalyticsProps {
 ====================================================== */
 
 export const SprintAnalytics = memo<SprintAnalyticsProps>(({ analytics }) => {
-  console.log("SprintAnalytics rendered with data:", {
-    burndownData: analytics.burndownData.length,
-    velocityData: analytics.velocityData.length,
-    totalIssues: analytics.totalIssues,
-    issueStatusDistribution: analytics.issueStatusDistribution,
-  });
-
   const healthColors = {
     "on-track": "bg-green-100 text-green-700 border-green-200",
     "at-risk": "bg-yellow-100 text-yellow-700 border-yellow-200",

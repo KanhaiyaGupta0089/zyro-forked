@@ -79,8 +79,11 @@ async def create_issue(session:AsyncSession,user_id:int,payload:dict) -> Issue:
     """
     Function to create a new issue in the database
     """
-
-    project_id = payload['project_id']
+    # Validate required fields
+    if not payload.get('name') or not payload['name'].strip():
+        raise ClientErrors(message="Issue name is required")
+    
+    project_id = payload.get('project_id')
     if not project_id:
         raise ClientErrors(message="Project ID is required")
     
@@ -88,9 +91,11 @@ async def create_issue(session:AsyncSession,user_id:int,payload:dict) -> Issue:
     if not project:
         raise NotFoundError(message="Project not found or you don't have access to it")
     
-    issue = Issue(**payload,assigned_by = user_id)
-
-   
+    # Ensure name is trimmed
+    payload['name'] = payload['name'].strip()
+    
+    # Create issue with assigned_by set to current user
+    issue = Issue(**payload, assigned_by=user_id)
 
     session.add(issue)
     await session.commit()

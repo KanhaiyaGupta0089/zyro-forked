@@ -229,7 +229,49 @@ class Issue(Base, TimestampMixin):
         cascade="all, delete"
     )
     
-    time_estimate = Column(Numeric, default=None, nullable=False)
+    time_estimate = Column(Numeric, default=0, nullable=False)
+    
+    attachments = relationship("Attachment", back_populates="issue", cascade="all, delete-orphan")
+    comments = relationship("Comment", back_populates="issue", cascade="all, delete-orphan")
+
+# ================= ATTACHMENTS =================
+
+class Attachment(Base, TimestampMixin):
+    __tablename__ = "attachment"
+    __table_args__ = (
+        Index('idx_attachment_issue_id', 'issue_id'),
+        Index('idx_attachment_user_id', 'uploaded_by'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    issue_id = Column(Integer, ForeignKey(Issue.id), nullable=False)
+    file_name = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=False)  # Size in bytes
+    file_type = Column(String, nullable=False)  # MIME type
+    file_url = Column(String, nullable=False)  # Cloudinary URL
+    cloudinary_public_id = Column(String, nullable=False)  # For deletion
+    uploaded_by = Column(Integer, ForeignKey(User.id), nullable=False)
+    
+    issue = relationship("Issue", back_populates="attachments")
+    uploader = relationship("User", foreign_keys=[uploaded_by], lazy="selectin")
+
+# ================= COMMENTS =================
+
+class Comment(Base, TimestampMixin):
+    __tablename__ = "comment"
+    __table_args__ = (
+        Index('idx_comment_issue_id', 'issue_id'),
+        Index('idx_comment_user_id', 'user_id'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    issue_id = Column(Integer, ForeignKey(Issue.id), nullable=False)
+    user_id = Column(Integer, ForeignKey(User.id), nullable=False)
+    content = Column(String, nullable=False)
+    edited = Column(Boolean, default=False, nullable=False)
+    
+    issue = relationship("Issue", back_populates="comments")
+    user = relationship("User", foreign_keys=[user_id], lazy="selectin")
 
 # ================= WORK LOGS =================
 

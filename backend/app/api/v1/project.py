@@ -11,7 +11,7 @@ from app.db.crud.project_crud import (
     delete_project
 )
 from app.common.errors import NotFoundError, DatabaseErrors
-from app.schemas.project import ProjectRequest, ProjectUpdateRequest
+from app.schemas.project import ProjectRequest, ProjectUpdateRequest, GitHubRepoLinkRequest
 
 
 
@@ -153,6 +153,58 @@ async def delete_project_api(
         "message":"Project deleted successfully",
         "data": None
     }
+
+@project_router.post("/{project_id}/link-github")
+async def link_github_repo(
+    request: GitHubRepoLinkRequest,
+    project_id: int,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Link a GitHub repository to a project
+    This allows the project to receive GitHub webhook events
+    
+    Example: {"github_repo": "username/repository"}
+    """
+    try:
+        # Get project
+        project = await get_project_by_id(
+            project_id=project_id,
+            user_id=current_user.id,
+            session=session
+        )
+        
+        if not project:
+            raise NotFoundError(message="Project not found")
+        
+        # Update project data with GitHub repo info
+        # Create a new dict to ensure SQLAlchemy detects the change
+        current_data = dict(project.data) if project.data else {}
+        current_data['github_repo'] = request.github_repo
+        
+        # Update project
+        updated_project = await update_project(
+            session=session,
+            project_id=project_id,
+            payload={'data': current_data},
+            user_id=current_user.id
+        )
+        
+        return {
+            "success": True,
+            "message": f"GitHub repository '{request.github_repo}' linked successfully",
+            "data": {
+                "project_id": updated_project.id,
+                "github_repo": request.github_repo
+            }
+        }
+        
+    except NotFoundError as e:
+        raise e
+    except Exception as e:
+        raise DatabaseErrors(message=f"Failed to link GitHub repository: {str(e)}")
+
 
 @project_router.get("/{project_id}/team")
 async def get_all_team_members_api(

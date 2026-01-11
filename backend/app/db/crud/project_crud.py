@@ -2,6 +2,7 @@ from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func, union, distinct
 from sqlalchemy.orm import joinedload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.model import Project, ProjectMember, User
 from app.common.errors import NotFoundError
@@ -140,6 +141,9 @@ async def update_project(
         if value is not None and key not in excluded_fields:
             if hasattr(project, key):
                 setattr(project, key, value)
+                # For JSONB fields, we need to flag them as modified
+                if key == 'data' and isinstance(value, dict):
+                    flag_modified(project, 'data')
                 updated_fields.append(key)
     
     if not updated_fields:

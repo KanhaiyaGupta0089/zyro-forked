@@ -111,7 +111,6 @@ const generateBurndownData = (
   issues: Issue[]
 ): BurndownDataPoint[] => {
   if (!sprint.start_date || !sprint.end_date) {
-    console.log("Burndown: Missing dates", { start_date: sprint.start_date, end_date: sprint.end_date });
     return [];
   }
 
@@ -123,11 +122,8 @@ const generateBurndownData = (
   const totalIssues = issues.length;
 
   if (totalDays <= 0 || totalIssues === 0) {
-    console.log("Burndown: Invalid days or no issues", { totalDays, totalIssues });
     return [];
   }
-  
-  console.log("Generating burndown data", { totalDays, totalIssues, startDate, endDate });
 
   const data: BurndownDataPoint[] = [];
   const today = new Date();
@@ -162,8 +158,6 @@ const generateBurndownData = (
 };
 
 const generateVelocityData = (currentSprint: Sprint | null, allSprints: Sprint[]): VelocityData[] => {
-  console.log("Generating velocity data - current sprint:", currentSprint?.id, "all sprints:", allSprints.length);
-  
   if (!currentSprint) {
     return [];
   }
@@ -239,7 +233,6 @@ const generateVelocityData = (currentSprint: Sprint | null, allSprints: Sprint[]
   // Combine: current sprint first, then other sprints
   const velocityData = [currentSprintData, ...otherSprints];
   
-  console.log("Generated velocity data:", velocityData);
   return velocityData;
 };
 

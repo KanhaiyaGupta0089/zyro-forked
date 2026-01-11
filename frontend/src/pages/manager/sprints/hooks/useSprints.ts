@@ -40,9 +40,7 @@ export const useSprints = (
     try {
       setLoading(true);
       setError(null);
-      console.log("Fetching sprints...");
       const data = await sprintApi.getAll();
-      console.log("Fetched sprints:", data);
       setSprints(data || []);
     } catch (err: any) {
       console.error("Error fetching sprints:", err);
