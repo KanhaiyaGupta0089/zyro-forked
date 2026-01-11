@@ -14,6 +14,7 @@ from app.api.v1.websocket import websocket_router
 from app.api.v1.webhook import webhook_router
 from app.api.v1.attachment import attachment_router
 from app.api.v1.comment import comment_router
+from app.api.v1.slack import slack_router
 
 
 api_router.include_router(auth_router, prefix='/auth', tags=['Authentication'])
@@ -28,3 +29,4 @@ api_router.include_router(websocket_router, tags=['Websocket'])
 api_router.include_router(webhook_router, prefix='/webhook', tags=['Webhook'])
 api_router.include_router(attachment_router, prefix='/attachment', tags=['Attachment'])
 api_router.include_router(comment_router, prefix='/comment', tags=['Comment'])
+api_router.include_router(slack_router, prefix='/slack', tags=['Slack'])

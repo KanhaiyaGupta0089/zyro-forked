@@ -24,6 +24,7 @@ from app.db.crud.user import get_user_by_id
 from app.services.email_service import send_email
 from app.tasks.email_task import send_email_task
 from app.services.redis_publisher import redis_publisher
+from app.utils.slack_notifier import send_slack_notification_for_issue
 
 issue_router = APIRouter()
 
@@ -122,7 +123,21 @@ async def create_issue_api(
     # publish issue update to redis pub/sub
     await redis_publisher.publish_issue_created(project_id=created_issue.project_id, issue_data=issue_dict)
 
-
+    # Send Slack notification (non-blocking, errors are logged but not raised)
+    issue_notification_data = {
+        "id": created_issue.id,
+        "name": created_issue.name,
+        "description": created_issue.description,
+        "status": created_issue.status.value if hasattr(created_issue.status, 'value') else str(created_issue.status),
+        "priority": created_issue.priority.value if hasattr(created_issue.priority, 'value') else str(created_issue.priority),
+        "type": created_issue.type.value if hasattr(created_issue.type, 'value') else str(created_issue.type),
+    }
+    await send_slack_notification_for_issue(
+        session=session,
+        project_id=created_issue.project_id,
+        notification_type="issue_created",
+        issue_data=issue_notification_data
+    )
 
     return {
         "success": True,
@@ -202,6 +217,66 @@ async def update_issue_api(
     }
     await redis_publisher.publish_issue_update(project_id=updated_issue.project_id, issue_data=issue_dict_with_user)
     print(f"[ISSUE UPDATE] Published issue update to Redis for project {updated_issue.project_id}, issue {updated_issue.id}")
+
+    # Track changes for Slack notification
+    changes = {}
+    if issue_status and old_status != updated_issue.status.value:
+        changes["status"] = {"old": old_status, "new": updated_issue.status.value}
+    
+    if "priority" in issue_data:
+        old_priority = old_issue.priority.value if hasattr(old_issue.priority, 'value') else str(old_issue.priority)
+        new_priority = updated_issue.priority.value if hasattr(updated_issue.priority, 'value') else str(updated_issue.priority)
+        if old_priority != new_priority:
+            changes["priority"] = {"old": old_priority, "new": new_priority}
+    
+    if "assigned_to" in issue_data:
+        old_assignee = old_issue.assignee.name if old_issue.assignee else "Unassigned"
+        new_assignee = updated_issue.assignee.name if updated_issue.assignee else "Unassigned"
+        if old_assignee != new_assignee:
+            changes["assigned_to"] = {"old": old_assignee, "new": new_assignee}
+
+    # Send Slack notifications (non-blocking)
+    issue_notification_data = {
+        "id": updated_issue.id,
+        "name": updated_issue.name,
+        "description": updated_issue.description,
+        "status": updated_issue.status.value if hasattr(updated_issue.status, 'value') else str(updated_issue.status),
+        "priority": updated_issue.priority.value if hasattr(updated_issue.priority, 'value') else str(updated_issue.priority),
+        "type": updated_issue.type.value if hasattr(updated_issue.type, 'value') else str(updated_issue.type),
+    }
+
+    # Send general update notification
+    if changes:
+        await send_slack_notification_for_issue(
+            session=session,
+            project_id=updated_issue.project_id,
+            notification_type="issue_updated",
+            issue_data=issue_notification_data,
+            additional_data={"changes": changes}
+        )
+
+    # Send status changed notification if status changed
+    if "status" in changes:
+        await send_slack_notification_for_issue(
+            session=session,
+            project_id=updated_issue.project_id,
+            notification_type="status_changed",
+            issue_data=issue_notification_data,
+            additional_data={
+                "old_status": changes["status"]["old"],
+                "new_status": changes["status"]["new"]
+            }
+        )
+
+    # Send assigned notification if assignee changed
+    if "assigned_to" in changes:
+        await send_slack_notification_for_issue(
+            session=session,
+            project_id=updated_issue.project_id,
+            notification_type="issue_assigned",
+            issue_data=issue_notification_data,
+            additional_data={"assignee_name": changes["assigned_to"]["new"]}
+        )
 
     # Send status update email if status changed
     if issue_status and old_status != updated_issue.status.value:

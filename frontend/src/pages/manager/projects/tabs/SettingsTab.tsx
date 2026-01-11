@@ -9,6 +9,7 @@ import {
 import { projectApi } from "@/services/api/projectApi";
 import { Project } from "@/services/api/types";
 import GitHubIntegration from "../components/GitHubIntegration";
+import SlackIntegration from "../components/SlackIntegration";
 
 // Mock UI components - these should be imported from your component library
 const Section = ({ title, icon, danger, children }: { title: string; icon: React.ReactNode; danger?: boolean; children: React.ReactNode }) => (
@@ -320,14 +321,14 @@ const SettingsTab = () => {
         )}
       </Section>
 
-      {/* GITHUB INTEGRATION */}
+      {/* INTEGRATIONS */}
       {project && canManageProject(currentUserRole) && (
         <div className="p-4 rounded-lg border border-gray-200 bg-white">
           <div className="flex items-center gap-2 mb-3">
             <Settings />
             <h3 className="font-semibold">Integrations</h3>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-6">
             <GitHubIntegration
               project={project}
               onUpdate={async () => {
@@ -336,6 +337,16 @@ const SettingsTab = () => {
                 setProject(updated);
               }}
             />
+            <div className="border-t border-gray-200 pt-6">
+              <SlackIntegration
+                project={project}
+                onUpdate={async () => {
+                  if (!id) return;
+                  const updated = await projectApi.getProjectById(Number(id));
+                  setProject(updated);
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
