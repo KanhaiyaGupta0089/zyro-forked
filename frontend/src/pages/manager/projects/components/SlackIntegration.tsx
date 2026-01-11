@@ -562,7 +562,7 @@ const SlackIntegration = ({ project, onUpdate }: SlackIntegrationProps) => {
                       disabled={isLinking}
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Format: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+                      Format: https://hooks.slack.com/services/YOUR_TEAM_ID/YOUR_BOT_ID/YOUR_SECRET_TOKEN
                     </p>
                   </div>
 
