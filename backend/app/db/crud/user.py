@@ -119,7 +119,8 @@ async def create_user_google(
         name=name.capitalize(),
         email=email,
         role=Role.ADMIN,
-        status=UserStatus.ACTIVE
+        status=UserStatus.ACTIVE,
+        type_of_signup=TypeOfSignup.GOOGLE
     )
     session.add(user)
     await session.commit()
