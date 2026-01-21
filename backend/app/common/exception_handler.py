@@ -53,6 +53,11 @@ class ExceptionHandler:
         
         Logger.info(f"Publishing error message - Type: {error_type}, Log Level: {log_level}, ENABLE_ERROR_EMAILS: {ENABLE_ERROR_EMAILS}")
         
+        # Include status_code in additional_info so it can be passed to email function
+        additional_info = error_data.get('additional_info', {})
+        if 'status_code' in error_data:
+            additional_info['status_code'] = error_data.get('status_code')
+        
         error_message_manager = ErrorMessageManager(
             product=APP_NAME,
             module=APP_NAME,
@@ -66,7 +71,7 @@ class ExceptionHandler:
             headers=error_data.get('headers', {}),
             method=error_data.get('method', 'unknown'),
             exclude=[],
-            additional_info={},
+            additional_info=additional_info,
             environment=ENVIRONMENT.lower()
         )
         
@@ -178,7 +183,7 @@ class ExceptionHandler:
                     error_data['headers'] = self.request_data_extractor.get_request_headers()
                 except Exception:
                     error_data['headers'] = {}
-
+            
             if 'uri' not in exclude_fields:
                 try:
                     error_data['uri'] = self.request_data_extractor.get_request_url(include_query_params=True)
@@ -210,11 +215,25 @@ class ExceptionHandler:
                 else:
                     # All other unknown errors should be classified as UnknownError
                     error_data['error_type'] = 'UnknownError'
+            
+            # Add status code to error data
+            if "status_code" not in exclude_fields:
+                if isinstance(self.exc, HTTPException):
+                    error_data['status_code'] = self.exc.status_code
+                elif isinstance(self.exc, UserErrors):
+                    error_data['status_code'] = getattr(self.exc, 'response_code', 400)
+                elif isinstance(self.exc, ClientErrors):
+                    error_data['status_code'] = getattr(self.exc, 'response_code', 400)
+                elif self._is_sqlalchemy_error(self.exc):
+                    error_data['status_code'] = 500
+                else:
+                    error_data['status_code'] = 500
         except Exception as e:
             Logger.error(f"Error in prepare_error_data: {str(e)}", exc_info=True)
             # Return minimal error data if preparation fails
             error_data['err'] = str(self.exc)
             error_data['error_type'] = type(self.exc).__name__
+            error_data['status_code'] = 500
 
         return error_data
         
@@ -231,6 +250,7 @@ class ExceptionHandler:
             error_message = field_string.title().replace('_', ' ') + ': ' + msg.title()
             reformatted_message.setdefault(field_string, []).append(msg)
 
+        # Validation errors are client errors (400) - no need to send email notifications
         return JSONResponse(
             status_code=400,
             content={"message": error_message, "details": reformatted_message, 'success': False},

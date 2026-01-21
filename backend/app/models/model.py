@@ -14,7 +14,8 @@ from app.core.enums import (
     Role, UserStatus,
     ProjectStatus, SprintStatus,
     IssueStatus, IssueType,
-    OrganizationStatus,Priority
+    OrganizationStatus,Priority,
+    TypeOfSignup
 )
 
 
@@ -34,6 +35,8 @@ class User(Base, TimestampMixin):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
+    google_user_id = Column(String, nullable=True)
+    type_of_signup =Column(Enum(TypeOfSignup,values_callcable= lambda enum:[e.value for e in enum]), default=TypeOfSignup.EMAIL, nullable=False)
     email = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=True)
     role = Column(Enum(Role, values_callable=lambda enum: [e.value for e in enum]), nullable=False)
@@ -47,6 +50,7 @@ class User(Base, TimestampMixin):
     def to_dict(self):
         return {
             "id": self.id,
+            "google_user_id": self.google_user_id,
             "email": self.email,
             "name": self.name,
             "role": self.role,

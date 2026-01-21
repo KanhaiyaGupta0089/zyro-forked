@@ -2,7 +2,7 @@ from app.models.model import User
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select,or_
 from app.core.security import hash_password,verify_password
-from app.core.enums import Role,UserStatus
+from app.core.enums import Role,UserStatus,TypeOfSignup
 from app.common.errors import NotFoundError
 from typing import Optional,List
 
@@ -32,7 +32,8 @@ async def create_user_password(
         email = email,
         password = hashed_password,
         role = Role.ADMIN,
-        status = UserStatus.ACTIVE
+        status = UserStatus.ACTIVE,
+        type_of_signup = TypeOfSignup.EMAIL
     )
     session.add(user)
     await session.commit()
@@ -95,3 +96,32 @@ async def get_all_managers(session:AsyncSession) -> List[User]:
     result = await session.execute(managers)
     managers = result.scalars().all()
     return list(managers)
+
+async def get_user_by_google_user_id(google_user_id:str,session:AsyncSession) -> List[User]:
+    """
+    Get user by google user id
+    """
+    user = select(User).where(User.google_user_id == google_user_id)
+    result = await session.execute(user)
+    return result.scalar_one_or_none()
+
+async def create_user_google(
+    google_user_id:str,
+    name:str,
+    email:str,
+    session:AsyncSession
+) -> User:
+    """
+    Create user with google user id
+    """
+    user = User(
+        google_user_id=google_user_id,
+        name=name.capitalize(),
+        email=email,
+        role=Role.ADMIN,
+        status=UserStatus.ACTIVE
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user

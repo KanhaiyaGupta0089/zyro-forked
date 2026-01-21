@@ -13,3 +13,6 @@ class User(BaseModel):
     id: int
     name: str
     email: str
+    
+class GoogleSignInRequest(BaseModel):
+    id_token: str

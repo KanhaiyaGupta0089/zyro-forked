@@ -68,7 +68,7 @@ class ErrorMessageManager(MailManager):
         """
         Prepare the error message as a structured dictionary.
         """
-        return {
+        message = {
             "id":str(uuid4()),
             "product": self.product,
             "module": self.module,
@@ -87,6 +87,12 @@ class ErrorMessageManager(MailManager):
             "exclude": self.exclude,
             "additional_info": self.additional_info
         }
+        
+        # Extract status_code from additional_info if present
+        if self.additional_info and 'status_code' in self.additional_info:
+            message['status_code'] = self.additional_info.get('status_code')
+        
+        return message
     
     async def publish_error_message(self):
         """Publish the error message to the logger and/or email."""

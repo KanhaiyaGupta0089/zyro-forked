@@ -51,6 +51,8 @@ else:
     except:
         JWT_REFRESH_TOKEN_EXPIRE_MINUTES = 10080  # Default: 7 days
 
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 # Email Settings
     

@@ -8,7 +8,7 @@ from app.core.conf import ERROR_NOTIFICATION_EMAILS, ENABLE_ERROR_EMAILS, APP_NA
 
 
 def invite_email(raw_token: str, new_user_name: str, new_user_email: str) -> dict:
-    invite_link = f"http://localhost:5173/verify-token/{raw_token}"
+    invite_link = f"https://zyro-forked.vercel.app/verify-token/{raw_token}"
 
     invite_email_body = f"""
 <!DOCTYPE html>
@@ -673,6 +673,13 @@ def send_error_notification_email(error_data: dict) -> dict:
     """Send error notification email to administrators."""
     if not _is_email_enabled():
         return {"status": "skipped", "message": "Error email notifications disabled"}
+    
+    # Skip sending emails for client errors (status code 400)
+    # These are user input errors like invalid credentials, unauthorized access, etc.
+    status_code = error_data.get('status_code', 500)
+    if status_code == 400:
+        Logger.info(f"Skipping error notification email for client error (status_code: 400) - {error_data.get('error_type', 'UnknownError')}")
+        return {"status": "skipped", "message": "Client error (400) - email notification skipped"}
     
     recipient_emails = _get_valid_recipients()
     if not recipient_emails:

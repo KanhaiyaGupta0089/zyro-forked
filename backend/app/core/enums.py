@@ -54,3 +54,7 @@ class Priority(Enum):
     MODERATE = "moderate"
     HIGH = "high"
     CRITICAL = "critical"
+    
+class TypeOfSignup(Enum):
+    EMAIL = "email"
+    GOOGLE = "google"

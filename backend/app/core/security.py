@@ -2,8 +2,11 @@ import bcrypt
 from typing import Optional
 from datetime import datetime,timedelta
 from jose import jwt, JWTError
-from app.core.conf import JWT_SECRET_KEY,JWT_ACCESS_TOKEN_EXPIRE_MINUTES,JWT_ALGORITHM,JWT_REFRESH_TOKEN_EXPIRE_MINUTES
-from app.common.errors import ServerErrors
+from app.core.conf import JWT_SECRET_KEY,JWT_ACCESS_TOKEN_EXPIRE_MINUTES,JWT_ALGORITHM,JWT_REFRESH_TOKEN_EXPIRE_MINUTES,GOOGLE_CLIENT_ID
+from app.common.logging.logging_config import Logger
+from app.common.errors import ServerErrors,ClientErrors
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
 import hmac
 import hashlib
 
@@ -85,4 +88,37 @@ async def verify_github_signature(body:bytes,secret_key:str,x_hub_signature_256:
     
     
     return hmac.compare_digest(signature.encode('utf-8'),x_hub_signature_256)
+
+
+async def verify_google_token(id_token_str) -> dict:
+    
+    """
+    Verify the google id token
+    """
+    
+    if not GOOGLE_CLIENT_ID:
+        Logger.error("GOOGLE_CLIENT_ID is not configured. Please contact administrator.")
+        raise ServerErrors(message="GOOGLE_CLIENT_ID is not configured. Please contact administrator.")
+    
+    
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            id_token_str,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+        
+        # Verify issuer
+        #iss stands for Issuer.
+        if idinfo['iss'] not in ['accounts.google.com','https://accounts.google.com']:
+            Logger.warning(f"Invalid Google token issuer: {idinfo['iss']}")
+            raise ClientErrors(message="Invalid Google token issuer")
+        return idinfo
+    except ValueError as e:
+        Logger.error(f"Error verifying Google token: {e}")
+        raise ClientErrors(message="Error verifying Google token")
+    except Exception as e:
+        Logger.error(f"Unexpected Error verifying Google token: {e}")
+        raise ClientErrors(message="Unexpected Error verifying Google token")
+    
     
