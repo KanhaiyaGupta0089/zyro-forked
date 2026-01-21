@@ -3,7 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
-import { loginUser } from "../../../../redux/auth/authThunks";
+import { GoogleLogin } from "@react-oauth/google";
+import { loginUser, googleSignIn } from "../../../../redux/auth/authThunks";
 import { clearAuthError } from "../../../../redux/auth/authSlice";
 import { RootState, AppDispatch } from "../../../../redux/store";
 import img1 from "../../../../assets/img1.png";
@@ -44,6 +45,48 @@ const Login: React.FC = () => {
     useEffect(() => {
         dispatch(clearAuthError());
     }, [dispatch]);
+
+    /* ---------------------------------- */
+    /* Google Sign-In */
+    /* ---------------------------------- */
+    const handleGoogleSignInSuccess = async (credentialResponse: any) => {
+        try {
+            if (!credentialResponse.credential) {
+                toast.error("Google sign-in failed. Please try again.");
+                return;
+            }
+
+            const result = await dispatch(googleSignIn({ id_token: credentialResponse.credential }));
+            
+            if (googleSignIn.fulfilled.match(result)) {
+                toast.success("Google sign-in successful!");
+                
+                // Redirect based on user role
+                const userRole = result.payload.user_data?.role;
+                
+                if (userRole === 'manager' || userRole === 'admin') {
+                    navigate("/manager");
+                } else if (userRole === 'employee') {
+                    navigate("/employee");
+                } else {
+                    navigate("/home");
+                }
+            } else {
+                const errorMessage = result.payload || "Google sign-in failed. Please try again.";
+                toast.error(String(errorMessage));
+            }
+        } catch (err: unknown) {
+            const message =
+                err instanceof Error
+                    ? err.message
+                    : "Google sign-in failed. Please try again.";
+            toast.error(message);
+        }
+    };
+
+    const handleGoogleSignInError = () => {
+        toast.error("Google sign-in failed. Please try again.");
+    };
 
     /* ---------------------------------- */
     /* Validation */
@@ -228,6 +271,27 @@ const Login: React.FC = () => {
                                 "Sign In"
                             )}
                         </button>
+
+                        <div className="relative my-6">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-gray-300"></div>
+                            </div>
+                            <div className="relative flex justify-center text-sm">
+                                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-center">
+                            <GoogleLogin
+                                onSuccess={handleGoogleSignInSuccess}
+                                onError={handleGoogleSignInError}
+                                useOneTap={false}
+                                theme="outline"
+                                size="large"
+                                text="signin_with"
+                                shape="rectangular"
+                            />
+                        </div>
 
                         <div className="block md:hidden text-center mt-4">
                             <p className="text-gray-600 text-sm">

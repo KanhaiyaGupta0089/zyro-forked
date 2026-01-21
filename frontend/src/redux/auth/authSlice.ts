@@ -2,6 +2,8 @@ import { createSlice } from "@reduxjs/toolkit";
 import {
   loginUser,
   registerUser,
+  googleSignIn,
+  refreshToken,
 } from "./authThunks";
 import { AuthState } from "./authTypes";
 
@@ -13,6 +15,7 @@ const loadAuthState = (): AuthState => {
       return {
         user: null,
         token: null,
+        refresh_token: null,
         loading: false,
         error: null,
         isAuthenticated: false,
@@ -34,6 +37,7 @@ const loadAuthState = (): AuthState => {
             return {
               user: null,
               token: null,
+              refresh_token: null,
               loading: false,
               error: null,
               isAuthenticated: false,
@@ -46,6 +50,7 @@ const loadAuthState = (): AuthState => {
         return {
           user: null,
           token: null,
+          refresh_token: null,
           loading: false,
           error: null,
           isAuthenticated: false,
@@ -59,6 +64,7 @@ const loadAuthState = (): AuthState => {
     return {
       user: null,
       token: null,
+      refresh_token: null,
       loading: false,
       error: null,
       isAuthenticated: false,
@@ -75,6 +81,7 @@ const authSlice = createSlice({
     logout(state) {
       state.user = null;
       state.token = null;
+      state.refresh_token = null;
       state.isAuthenticated = false;
       // Remove auth state from localStorage on logout
       localStorage.removeItem('authState');
@@ -84,15 +91,17 @@ const authSlice = createSlice({
     },
     // Action to manually set auth state
     setAuthState(state, action) {
-      const { user, token } = action.payload;
+      const { user, token, refresh_token } = action.payload;
       state.user = user;
       state.token = token;
+      state.refresh_token = refresh_token || null;
       state.isAuthenticated = !!user && !!token;
       
       // Save auth state to localStorage
       const serializedState = JSON.stringify({
         user,
         token,
+        refresh_token: refresh_token || null,
         loading: state.loading,
         error: state.error,
         isAuthenticated: state.isAuthenticated,
@@ -112,12 +121,14 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user_data;
         state.token = action.payload.access_token;
+        state.refresh_token = action.payload.refresh_token;
         state.isAuthenticated = true;
         
         // Save auth state to localStorage
         const serializedState = JSON.stringify({
           user: action.payload.user_data,
           token: action.payload.access_token,
+          refresh_token: action.payload.refresh_token,
           loading: state.loading,
           error: state.error,
           isAuthenticated: state.isAuthenticated,
@@ -140,12 +151,14 @@ const authSlice = createSlice({
         if (action.payload && action.payload.user_data) {
           state.user = action.payload.user_data;
           state.token = action.payload.access_token;
+          state.refresh_token = action.payload.refresh_token;
           state.isAuthenticated = true;
           
           // Save auth state to localStorage
           const serializedState = JSON.stringify({
             user: action.payload.user_data,
             token: action.payload.access_token,
+            refresh_token: action.payload.refresh_token,
             loading: state.loading,
             error: state.error,
             isAuthenticated: state.isAuthenticated,
@@ -156,6 +169,68 @@ const authSlice = createSlice({
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+      })
+
+      /* GOOGLE SIGN-IN */
+      .addCase(googleSignIn.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(googleSignIn.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user_data;
+        state.token = action.payload.access_token;
+        state.refresh_token = action.payload.refresh_token;
+        state.isAuthenticated = true;
+        
+        // Save auth state to localStorage
+        const serializedState = JSON.stringify({
+          user: action.payload.user_data,
+          token: action.payload.access_token,
+          refresh_token: action.payload.refresh_token,
+          loading: state.loading,
+          error: state.error,
+          isAuthenticated: state.isAuthenticated,
+        });
+        localStorage.setItem('authState', serializedState);
+      })
+      .addCase(googleSignIn.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+
+      /* REFRESH TOKEN */
+      .addCase(refreshToken.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(refreshToken.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user_data;
+        state.token = action.payload.access_token;
+        state.refresh_token = action.payload.refresh_token;
+        state.isAuthenticated = true;
+        
+        // Save auth state to localStorage
+        const serializedState = JSON.stringify({
+          user: action.payload.user_data,
+          token: action.payload.access_token,
+          refresh_token: action.payload.refresh_token,
+          loading: state.loading,
+          error: state.error,
+          isAuthenticated: state.isAuthenticated,
+        });
+        localStorage.setItem('authState', serializedState);
+      })
+      .addCase(refreshToken.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+        // If refresh fails, clear auth state
+        state.user = null;
+        state.token = null;
+        state.refresh_token = null;
+        state.isAuthenticated = false;
+        localStorage.removeItem('authState');
       });
   },
 });

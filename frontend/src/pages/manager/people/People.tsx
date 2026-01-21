@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, forwardRef } from "react";
+import { useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
@@ -19,6 +20,7 @@ import CreateUserModal from "./CreateUserModal";
 import EditUserModal from "./EditUserModal";
 import DeleteUserModal from "./DeleteUserModal";
 import toast from "react-hot-toast";
+import { RootState } from "../../../redux/store";
 
 /* ======================================================
    Types
@@ -203,6 +205,7 @@ UserCard.displayName = "UserCard";
 ====================================================== */
 
 const People = () => {
+  const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -301,13 +304,15 @@ const People = () => {
             <h1 className="text-2xl font-bold text-[#172B4D]">People</h1>
             <p className="text-sm text-[#6B778C] mt-1">Manage your team members</p>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0052CC] to-[#0065FF] text-white rounded-lg hover:from-[#0065FF] hover:to-[#0052CC] transition-all font-semibold shadow-md hover:shadow-lg"
-          >
-            <Plus size={18} />
-            Invite User
-          </button>
+          {currentUser?.role === "admin" && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0052CC] to-[#0065FF] text-white rounded-lg hover:from-[#0065FF] hover:to-[#0052CC] transition-all font-semibold shadow-md hover:shadow-lg"
+            >
+              <Plus size={18} />
+              Invite User
+            </button>
+          )}
         </div>
 
         {/* Search and Filters */}

@@ -14,6 +14,7 @@ export interface User {
 export interface AuthState {
   user: User | null;
   token: string | null;
+  refresh_token: string | null;
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
@@ -32,6 +33,10 @@ export interface RegisterPayload {
   email: string;
   password: string;
   role?: string;
+}
+
+export interface GoogleSignInPayload {
+  id_token: string;
 }
 
 export interface SetAuthStatePayload {
